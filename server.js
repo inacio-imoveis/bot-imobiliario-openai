@@ -11,6 +11,7 @@ app.use(express.json());
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Verificação Meta (mantido para compatibilidade)
 app.get("/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
     res.send(req.query["hub.challenge"]);
@@ -19,19 +20,52 @@ app.get("/webhook", (req, res) => {
   }
 });
 
+// Webhook Evolution API
 app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 
-  const entry = req.body?.entry?.[0]?.changes?.[0]?.value;
-  const message = entry?.messages?.[0];
-  if (!message || message.type !== "text") return;
-
-  const phone = message.from;
-  const userText = message.text.body.trim();
-
-  console.log(`[${phone}] → ${userText}`);
-
   try {
+    const body = req.body;
+
+    // Formato Evolution API
+    let phone, userText;
+
+    if (body?.event === "messages.upsert" || body?.data?.key) {
+      // Evolution API format
+      const data = body.data || body;
+      const key = data.key || {};
+
+      // Ignorar mensagens enviadas pelo próprio bot
+      if (key.fromMe === true) return;
+
+      phone = key.remoteJid?.replace("@s.whatsapp.net", "").replace("@g.us", "");
+
+      // Ignorar grupos
+      if (key.remoteJid?.includes("@g.us")) return;
+
+      // Pegar texto da mensagem
+      const msg = data.message || {};
+      userText = msg.conversation ||
+                 msg.extendedTextMessage?.text ||
+                 msg.text ||
+                 null;
+
+      if (!userText || !phone) return;
+
+    } else if (body?.entry?.[0]?.changes?.[0]?.value) {
+      // Meta API format (fallback)
+      const entry = body.entry[0].changes[0].value;
+      const message = entry?.messages?.[0];
+      if (!message || message.type !== "text") return;
+      phone = message.from;
+      userText = message.text.body.trim();
+    } else {
+      return;
+    }
+
+    userText = userText.trim();
+    console.log(`[${phone}] → ${userText}`);
+
     const session = sessionManager.get(phone);
 
     if (session.waitingForHuman) {
@@ -55,7 +89,7 @@ app.post("/webhook", async (req, res) => {
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_tokens: 1000,
       messages: [
         { role: "system", content: buildSystemPrompt(catalog) },
@@ -76,11 +110,11 @@ app.post("/webhook", async (req, res) => {
     }
 
   } catch (err) {
-    console.error(`[${phone}] Erro:`, err.message);
-    await sendWhatsAppMessage(phone, "Desculpe, tive um problema técnico. Pode repetir sua mensagem? 🙏");
+    console.error("Erro no webhook:", err.message);
   }
 });
 
+// Reativar bot após atendimento humano
 app.post("/handoff/resolve/:phone", (req, res) => {
   const phone = req.params.phone;
   const session = sessionManager.get(phone);
@@ -93,6 +127,6 @@ app.get("/status", (req, res) => {
   res.json({ status: "online", sessions: sessionManager.count(), uptime: process.uptime() });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("🤖 Bot imobiliário OpenAI rodando na porta", process.env.PORT || 3000);
+app.listen(process.env.PORT || 8080, () => {
+  console.log("🤖 Bot imobiliário OpenAI rodando na porta", process.env.PORT || 8080);
 });

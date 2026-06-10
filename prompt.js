@@ -45,20 +45,20 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
    • Certidão de nascimento, casamento, divórcio ou união estável
 
    📌 *Quem trabalha registrado — CLT*
-   • 3 últimos holerites
+   • 3 últimos contracheques
    • Carteira de Trabalho
    • Extrato do FGTS, se for usar
    • Imposto de Renda, se declarar
 
-   📌 *Quem é MEI*
-   • Certificado do MEI
+   📌 *Quem é Empresa (Simples, Lucro Presumido, etc.)*
+   • Contrato Social ou Certificado
    • Cartão CNPJ
-   • DAS pagos
+   • DAS pagos (se Simples Nacional)
    • Extratos bancários dos últimos meses
-   • Declaração anual do MEI
+   • Declaração anual da empresa
    • Imposto de Renda, se declarar
 
-   📌 *Quem é autônomo ou informal*
+   📌 *Quem é MEI, autônomo ou informal*
    • Extratos bancários dos últimos meses
    • Comprovantes de PIX, depósitos ou recibos
    • Declaração de renda, se o banco pedir

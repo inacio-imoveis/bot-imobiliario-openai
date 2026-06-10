@@ -104,11 +104,6 @@ app.post("/webhook", async (req, res) => {
 
     await sendWhatsAppMessage(phone, reply);
 
-    if (/agendar|visita|proposta|interesse|quero ver/i.test(userText)) {
-      await new Promise(r => setTimeout(r, 2000));
-      await sendWhatsAppMessage(phone, "📅 Posso agendar uma visita sem compromisso! Quer que eu passe para um consultor confirmar o melhor horário?");
-    }
-
   } catch (err) {
     console.error("Erro no webhook:", err.message);
   }

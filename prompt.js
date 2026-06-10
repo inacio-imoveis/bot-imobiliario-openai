@@ -44,7 +44,7 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
    • Comprovante de endereço atualizado
    • Certidão de nascimento, casamento, divórcio ou união estável
 
-   📌 *Quem trabalha registrado — CLT*
+   📌 *Quem trabalha com Carteira Assinada — CLT*
    • 3 últimos contracheques
    • Carteira de Trabalho
    • Extrato do FGTS, se for usar

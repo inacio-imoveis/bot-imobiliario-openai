@@ -6,14 +6,18 @@ import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo } from "./db.js";
-import { transcribeAudio } from "./audio.js";
+import { transcribeBase64Audio } from "./audio.js";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 initDB();
+
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://evolution-api-production-8ffe.up.railway.app";
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "ed44cb6b57f549bd2e1a9fad756fefd59387fd2962b5748d6939099742ff8640";
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "bot-ricardo";
 
 // Detecta pedido de fotos
 function detectPhotoRequest(text) {
@@ -53,6 +57,23 @@ function extractLeadData(messages) {
   return Object.keys(data).length > 0 ? data : null;
 }
 
+// Busca base64 do áudio via Evolution API
+async function getAudioBase64(message) {
+  try {
+    const resp = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`, {
+      method: "POST",
+      headers: { "apikey": EVOLUTION_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ message, convertToMp4: false })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data?.base64 || data?.data?.base64 || null;
+  } catch (err) {
+    console.error("Erro ao buscar base64:", err.message);
+    return null;
+  }
+}
+
 // Verificação Meta
 app.get("/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
@@ -79,32 +100,16 @@ app.post("/webhook", async (req, res) => {
 
       const msg = data.message || {};
 
-      // Detectar áudio
-      const audioMsg = msg.audioMessage || msg.pttMessage;
-      if (audioMsg) {
-        console.log(`[${phone}] 🎙️ Áudio recebido — transcrevendo...`);
+      // Detectar áudio (PTT = Push To Talk = gravado no app; audioMessage = arquivo de áudio)
+      const isAudio = !!(msg.audioMessage || msg.pttMessage);
 
-        // Buscar URL do áudio via Evolution API
-        const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://evolution-api-production-8ffe.up.railway.app";
-        const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "ed44cb6b57f549bd2e1a9fad756fefd59387fd2962b5748d6939099742ff8640";
-        const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "bot-ricardo";
+      if (isAudio) {
+        console.log(`[${phone}] 🎙️ Áudio recebido — buscando base64...`);
+        const base64 = await getAudioBase64({ key, message: msg });
 
-        const msgId = key.id;
-        const mediaResp = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`, {
-          method: "POST",
-          headers: { "apikey": EVOLUTION_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ message: { key, message: msg } })
-        });
-
-        if (mediaResp.ok) {
-          const mediaData = await mediaResp.json();
-          const base64 = mediaData?.base64 || mediaData?.data?.base64;
-
-          if (base64) {
-            // Converter base64 para arquivo temporário e transcrever
-            const { transcribeBase64Audio } = await import("./audio.js");
-            userText = await transcribeBase64Audio(base64);
-          }
+        if (base64) {
+          console.log(`[${phone}] 🎙️ Base64 obtido — transcrevendo com Whisper...`);
+          userText = await transcribeBase64Audio(base64);
         }
 
         if (!userText) {
@@ -116,7 +121,6 @@ app.post("/webhook", async (req, res) => {
         await sendWhatsAppMessage(phone, `🎙️ _Entendi: "${userText}"_`);
 
       } else {
-        // Mensagem de texto normal
         userText = msg.conversation || msg.extendedTextMessage?.text || msg.text || null;
       }
 
@@ -215,7 +219,6 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// Reativar bot
 app.post("/handoff/resolve/:phone", (req, res) => {
   const phone = req.params.phone;
   const session = sessionManager.get(phone);

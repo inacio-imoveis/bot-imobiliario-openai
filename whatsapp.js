@@ -22,6 +22,7 @@ export async function sendWhatsAppMessage(to, text) {
 export async function sendWhatsAppImage(to, imageUrl, caption = "") {
   const number = to.includes("@") ? to.replace("@s.whatsapp.net", "") : to;
 
+  // Tenta sendMedia com ambos os formatos (media e mediaUrl)
   const response = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`, {
     method: "POST",
     headers: {
@@ -31,12 +32,19 @@ export async function sendWhatsAppImage(to, imageUrl, caption = "") {
     body: JSON.stringify({
       number,
       mediatype: "image",
+      mimetype: "image/jpeg",
       media: imageUrl,
+      mediaUrl: imageUrl,
       caption,
+      fileName: "foto.jpg",
     }),
   });
 
   const data = await response.json();
-  if (!response.ok) console.error("Erro Evolution API (image):", JSON.stringify(data));
+  if (!response.ok) {
+    console.error("Erro Evolution API (image):", JSON.stringify(data));
+    // Fallback: envia como URL de texto simples
+    return sendWhatsAppMessage(to, imageUrl);
+  }
   return data;
 }

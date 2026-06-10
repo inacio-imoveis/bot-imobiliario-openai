@@ -1,118 +1,116 @@
 /**
- * Simulador de financiamento MCMV
- * Fórmula Price (SAC aproximado para MCMV)
+ * Simulador MCMV — Ricardo Inácio Imóveis
+ * Lógica: Financiado = Avaliação Caixa × 80% | Entrada = Venda - Financiado
  */
 
-// Calcula parcela pelo sistema Price
-function calcularParcela(valorFinanciado, taxaAnual, prazoMeses) {
-  const taxaMensal = taxaAnual / 12 / 100;
-  const parcela = valorFinanciado * (taxaMensal * Math.pow(1 + taxaMensal, prazoMeses)) / (Math.pow(1 + taxaMensal, prazoMeses) - 1);
-  return parcela;
+// Catálogo interno com valores reais (avaliação OCULTA para o cliente)
+export const imeoveisSimulacao = {
+  "pilar":   { nome: "Pilar dos Sonhos", venda: 320000, avaliacao: 380000 },
+  "botanico":{ nome: "Botânico",         venda: 283000, avaliacao: 343000 },
+  "della":   { nome: "Della Penna",      venda: 280000, avaliacao: 280000 },
+  "nacoes":  { nome: "Setor das Nações", venda: 320000, avaliacao: 320000 },
+  "santafe": { nome: "Santa Fé",         venda: 300000, avaliacao: 343291 },
+};
+
+function fmt(v) {
+  return "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Calcula valor máximo financiável com base na renda e parcela máxima (30%)
-function calcularMaxFinanciamento(rendaMensal, taxaAnual, prazoMeses) {
-  const taxaMensal = taxaAnual / 12 / 100;
-  const parcelaMax = rendaMensal * 0.30;
-  const valorMax = parcelaMax * (Math.pow(1 + taxaMensal, prazoMeses) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoMeses));
-  return valorMax;
-}
-
-// Formata valor em reais
-function formatBRL(valor) {
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function calcParcela(pv, taxaAnual, n) {
+  const i = taxaAnual / 12 / 100;
+  return pv * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
 }
 
 /**
- * Gera simulação completa para um cliente
- * @param {object} dados - { renda, tipo, idade, fgts, imovelValor, imovelNome }
+ * Determina faixa e taxa com base na renda e perfil FGTS
+ */
+function getFaixaTaxa(renda, cotista) {
+  if (renda <= 4400) {
+    return { faixa: 2, taxa: 6.0, taxaEfetiva: 6.17, label: "Faixa 2" };
+  } else {
+    return {
+      faixa: 3,
+      taxa: cotista ? 7.66 : 8.16,
+      taxaEfetiva: cotista ? 7.93 : 8.47,
+      label: cotista ? "Faixa 3 — Cotista FGTS" : "Faixa 3 — Não Cotista"
+    };
+  }
+}
+
+/**
+ * Simula financiamento para um imóvel
+ * @param {object} dados - { renda, cotista, idade, fgts, imovelKey }
  */
 export function simular(dados) {
-  const { renda, tipo, idade, fgts = 0, imovelValor, imovelNome } = dados;
+  const { renda, cotista = false, idade = 35, fgts = 0, imovelKey } = dados;
 
-  // Taxa conforme perfil
-  // CLT: 7,66% | MEI/autônomo/informal: 8,16% | Empresa: 7,66%
-  const taxaAnual = (tipo === "clt" || tipo === "empresa") ? 7.66 : 8.16;
-  const taxaEfetiva = (tipo === "clt" || tipo === "empresa") ? 7.93 : 8.47;
+  const imovel = imeoveisSimulacao[imovelKey];
+  if (!imovel) throw new Error("Imóvel não encontrado: " + imovelKey);
 
-  // Prazo máximo baseado na idade (limite: 80 anos - idade atual, máx 420 meses)
-  const prazoMaxAnos = Math.min(80 - idade, 35);
-  const prazoMeses = prazoMaxAnos * 12;
+  const { faixa, taxa, taxaEfetiva, label } = getFaixaTaxa(renda, cotista);
 
-  // Valor máximo financiável
-  let valorMaxFinanciado = calcularMaxFinanciamento(renda, taxaAnual, prazoMeses);
+  // Financiamento e entrada
+  const valorFinanciado = imovel.avaliacao * 0.80;
+  const entrada = imovel.venda - valorFinanciado;
+  const entradaComFGTS = Math.max(0, entrada - fgts);
 
-  // Desconta FGTS do valor financiado (FGTS entra como abatimento)
-  const valorFinanciadoComFGTS = Math.max(0, valorMaxFinanciado - fgts);
+  // Prazo
+  const prazoAnos = Math.min(80 - idade, 35);
+  const prazoMeses = prazoAnos * 12;
 
-  // Parcela inicial e final estimadas
-  const parcelaInicial = calcularParcela(valorFinanciadoComFGTS, taxaAnual, prazoMeses);
-  const parcelaFinal = parcelaInicial * 0.958; // redução gradual ~4,2%
+  // Parcelas
+  const parcelaInicial = calcParcela(valorFinanciado, taxa, prazoMeses);
+  const parcelaFinal = parcelaInicial * 0.958;
 
-  // Cálculo de entrada para o imóvel específico
-  let entrada = null;
-  let entradaComFGTS = null;
-  if (imovelValor) {
-    entrada = Math.max(0, imovelValor - valorMaxFinanciado);
-    entradaComFGTS = Math.max(0, imovelValor - valorMaxFinanciado - fgts);
-  }
+  // Comprometimento de renda
+  const comprometimento = (parcelaInicial / renda * 100).toFixed(1);
 
   return {
-    taxaAnual,
+    imovel: imovel.nome,
+    valorVenda: imovel.venda,
+    valorFinanciado,
+    entrada,
+    entradaComFGTS: fgts > 0 ? entradaComFGTS : null,
+    fgts,
+    faixa,
+    faixaLabel: label,
+    taxa,
     taxaEfetiva,
+    prazoAnos,
     prazoMeses,
-    prazoAnos: prazoMaxAnos,
-    valorMaxFinanciado,
-    valorFinanciadoComFGTS,
     parcelaInicial,
     parcelaFinal,
-    entrada,
-    entradaComFGTS,
-    imovelNome,
-    imovelValor,
-    fgts,
+    comprometimento,
     renda,
-    tipo,
+    cotista,
   };
 }
 
 /**
- * Formata resultado da simulação em texto para WhatsApp
+ * Formata mensagem para WhatsApp
  */
 export function formatarSimulacao(s, nomeCliente = "") {
-  const saudacao = nomeCliente ? `Olá, ${nomeCliente}! ` : "Olá! ";
+  const nome = nomeCliente.split(" ")[0] || "cliente";
 
-  let texto = `${saudacao}Realizamos uma simulação com base nas informações apresentadas. 😊\n\n`;
+  let txt = `Olá, ${nome}! Realizamos uma simulação com base nas suas informações. 😊\n\n`;
+  txt += `🏠 *Imóvel:* ${s.imovel}\n`;
+  txt += `💵 *Valor do imóvel:* ${fmt(s.valorVenda)}\n\n`;
 
-  texto += `✅ *Valor máximo estimado para financiamento:* ${formatBRL(s.valorMaxFinanciado)}\n`;
-
-  if (s.fgts > 0) {
-    texto += `🏦 *FGTS aplicado:* ${formatBRL(s.fgts)} (abatido do financiamento)\n`;
-    texto += `✅ *Valor financiado após FGTS:* ${formatBRL(s.valorFinanciadoComFGTS)}\n`;
+  txt += `✅ *Valor financiado pela Caixa:* ${fmt(s.valorFinanciado)}\n`;
+  txt += `🔑 *Entrada necessária:* ${fmt(s.entrada)}`;
+  if (s.entradaComFGTS !== null && s.entradaComFGTS < s.entrada) {
+    txt += ` (ou *${fmt(s.entradaComFGTS)}* usando o FGTS na entrada)`;
   }
+  txt += `\n\n`;
 
-  texto += `💰 *Parcela aproximada:* ${formatBRL(s.parcelaInicial)} por mês, com redução gradual ao longo do contrato, podendo chegar a aproximadamente ${formatBRL(s.parcelaFinal)} nas últimas parcelas.\n`;
-  texto += `📌 *Taxa de juros:* ${s.taxaAnual}% ao ano (${s.taxaEfetiva}% efetivos ao ano).\n`;
-  texto += `⏳ *Prazo:* ${s.prazoAnos} anos (${s.prazoMeses} meses).\n\n`;
+  txt += `💰 *Parcela inicial:* ${fmt(s.parcelaInicial)}/mês\n`;
+  txt += `📉 *Parcela final estimada:* ${fmt(s.parcelaFinal)}/mês _(redução gradual ao longo do contrato)_\n`;
+  txt += `📌 *Taxa de juros:* ${s.taxa}% ao ano (${s.taxaEfetiva}% efetivos a.a.) — ${s.faixaLabel}\n`;
+  txt += `⏳ *Prazo:* ${s.prazoAnos} anos (${s.prazoMeses} meses)\n\n`;
 
-  texto += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
+  txt += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
+  txt += `📋 A aprovação considera score, compromissos financeiros e documentação. ${s.fgts > 0 ? `O FGTS de ${fmt(s.fgts)} pode ser usado para reduzir a entrada. ` : ""}Caso tenha interesse, nosso consultor dará continuidade à análise.\n\n`;
+  txt += `Em breve entraremos em contato para agendar sua visita e dar os próximos passos! 😊🏠`;
 
-  if (s.imovelValor && s.imovelNome) {
-    texto += `🏡 *Para o imóvel ${s.imovelNome}:*\n`;
-    if (s.entrada <= 0) {
-      texto += `✅ O valor financiado cobre o imóvel! Entrada pode ser mínima.\n`;
-    } else {
-      texto += `💵 *Entrada necessária:* ${formatBRL(s.entrada)}`;
-      if (s.fgts > 0 && s.entradaComFGTS < s.entrada) {
-        texto += ` (ou ${formatBRL(s.entradaComFGTS)} usando o FGTS na entrada)`;
-      }
-      texto += `\n`;
-    }
-    texto += `\n`;
-  }
-
-  texto += `📋 A *aprovação final* depende da análise de crédito, score, compromissos financeiros e documentação apresentada.\n\n`;
-  texto += `Em breve nosso consultor entra em contato para dar continuidade e agendar sua visita! 😊🏠`;
-
-  return texto;
+  return txt;
 }

@@ -54,14 +54,13 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
    • Contrato Social ou Certificado
    • Cartão CNPJ
    • DAS pagos (se Simples Nacional)
-   • Extratos bancários dos últimos meses
+   • Movimentação bancária (extrato dos últimos 4 meses)
    • Declaração anual da empresa
    • Imposto de Renda, se declarar
 
    📌 *Quem é MEI, autônomo ou informal*
-   • Extratos bancários dos últimos meses
+   • Movimentação bancária (extrato dos últimos 4 meses)
    • Comprovantes de PIX, depósitos ou recibos
-   • Declaração de renda, se o banco pedir
    • Imposto de Renda, se declarar
 
    📌 *Se for usar FGTS*

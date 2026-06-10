@@ -2,13 +2,13 @@ import express from "express";
 import { readFileSync } from "fs";
 import OpenAI from "openai";
 import { catalog } from "./imoveis.js";
+import { imoveisSimulacao, simular, formatarSimulacao } from "./simulador.js";
 import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
-import { simular, formatarSimulacao } from "./simulador.js";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -21,17 +21,18 @@ const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://evolution-ap
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "ed44cb6b57f549bd2e1a9fad756fefd59387fd2962b5748d6939099742ff8640";
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "bot-ricardo";
 
-// Detecta pedido de fotos
+// ── DETECTORES ──────────────────────────────────────────────────────────────
+
 function detectPhotoRequest(text) {
   const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const keywords = [
-    { key: "botanico",           names: ["botanico"] },
-    { key: "della penna",        names: ["della penna", "della", "penna"] },
-    { key: "nacoes",             names: ["nacoes", "setor das nacoes"] },
-    { key: "pilar dos sonhos",   names: ["noroeste", "pilar", "pilar dos sonhos", "sonhos", "atacadao", "portal shopping"] },
-    { key: "carolina",           names: ["carolina", "carolina parque", "joao braz"] },
-    { key: "monte pascoal",      names: ["monte pascoal", "pascoal"] },
-    { key: "santa fe",           names: ["santa fe"] },
+    { key: "botanico",         names: ["botanico"] },
+    { key: "della penna",      names: ["della penna", "della", "penna"] },
+    { key: "nacoes",           names: ["nacoes", "setor das nacoes"] },
+    { key: "pilar dos sonhos", names: ["noroeste", "pilar", "pilar dos sonhos", "sonhos", "atacadao", "portal shopping"] },
+    { key: "carolina",         names: ["carolina", "carolina parque", "joao braz"] },
+    { key: "monte pascoal",    names: ["monte pascoal", "pascoal"] },
+    { key: "santa fe",         names: ["santa fe"] },
   ];
   const isFotoRequest = lower.includes("foto") || lower.includes("imagem") || lower.includes("pic") || lower.includes("ver") || lower.includes("manda") || lower.includes("mostra");
   if (!isFotoRequest) return null;
@@ -43,95 +44,86 @@ function detectPhotoRequest(text) {
   return null;
 }
 
-// Extrai dados de lead da sessão e tenta montar simulação
-function extractLeadData(messages) {
+// Extrai dados do lead do histórico da sessão
+function extractLeadFromHistory(messages) {
   const history = messages.map(m => m.content).join("\n");
   const lower = history.toLowerCase();
   const data = {};
 
+  // Nome
   const nomeMatch = history.match(/(?:nome completo|nome)[:\s*]+([A-Za-zÀ-ú\s]{5,60})/i);
   if (nomeMatch) data.nome = nomeMatch[1].trim();
 
-  const nascMatch = history.match(/(\d{2}\/\d{2}\/\d{4}|\d{4})/);
-  if (nascMatch) data.data_nascimento = nascMatch[1].trim();
-
-  const rendaMatch = history.match(/r\$?\s*([\d.,]+)\s*mil|renda[^R\n]*R\$?\s*([\d.,]+)/i);
-  if (rendaMatch) data.renda_mensal = (rendaMatch[1] || rendaMatch[2] || "").trim();
-
-  if (lower.includes("clt") || lower.includes("carteira assinada")) data.tipo_renda = "clt";
-  else if (lower.includes("mei")) data.tipo_renda = "mei";
-  else if (lower.includes("autônomo") || lower.includes("autonomo") || lower.includes("informal") || lower.includes("renda própria") || lower.includes("renda propria")) data.tipo_renda = "autonomo";
-  else if (lower.includes("empresa") || lower.includes("simples") || lower.includes("lucro")) data.tipo_renda = "empresa";
-
-  if (lower.includes("fgts")) data.usa_fgts = true;
-  if (lower.includes("casado") || lower.includes("dois compradores") || lower.includes("comprador junto")) data.comprador_conjunto = true;
-
-  return Object.keys(data).length > 0 ? data : null;
-}
-
-// Tenta extrair dados suficientes para simular
-function trySimular(session, imovelInteresse) {
-  const history = session.getHistory().map(m => m.content).join("\n");
-  const lower = history.toLowerCase();
-
-  // Renda
-  let renda = 0;
-  const rendaMatches = [...history.matchAll(/(?:renda|ganho|recebo)[^R\n]*?R?\$?\s*([\d.,]+)\s*(?:mil|k)?/gi)];
-  for (const m of rendaMatches) {
-    let val = parseFloat(m[1].replace(/\./g, "").replace(",", "."));
-    if (val < 500) val *= 1000; // ex: "10 mil" → 10000
-    if (val > renda) renda = val;
-  }
-  // Tenta pegar números simples como "10 mil" ou "10000"
-  if (renda === 0) {
-    const simples = history.match(/\b(\d+)\s*mil\b/i);
-    if (simples) renda = parseFloat(simples[1]) * 1000;
-  }
-
-  if (renda === 0) return null;
-
-  // Tipo
-  let tipo = "autonomo";
-  if (lower.includes("clt") || lower.includes("carteira assinada")) tipo = "clt";
-  else if (lower.includes("empresa") || lower.includes("simples nacional")) tipo = "empresa";
-
-  // Idade
-  let idade = 35; // padrão
+  // Data de nascimento / idade
   const nascMatch = history.match(/(\d{2})\/(\d{2})\/(\d{4})/);
   if (nascMatch) {
-    const anoNasc = parseInt(nascMatch[3]);
-    idade = new Date().getFullYear() - anoNasc;
+    data.data_nascimento = nascMatch[0];
+    data.idade = new Date().getFullYear() - parseInt(nascMatch[3]);
   } else {
-    const idadeMatch = history.match(/(\d{2})\s*anos/i);
-    if (idadeMatch) idade = parseInt(idadeMatch[1]);
+    const anoMatch = history.match(/\b(19\d{2}|20[0-1]\d)\b/);
+    if (anoMatch) data.idade = new Date().getFullYear() - parseInt(anoMatch[1]);
   }
 
-  // FGTS
-  let fgts = 0;
-  if (lower.includes("fgts")) {
-    const fgtsMatch = history.match(/fgts[^R\n]*?R?\$?\s*([\d.,]+)/i);
-    if (fgtsMatch) {
-      fgts = parseFloat(fgtsMatch[1].replace(/\./g, "").replace(",", "."));
-      if (fgts < 500) fgts *= 1000;
+  // Renda — pega o maior valor mencionado
+  let renda = 0;
+  const rendaPatterns = [
+    /r\$\s*([\d.,]+)\s*(?:mil)?/gi,
+    /(\d+)\s*mil/gi,
+    /renda[^0-9]*(\d[\d.,]*)/gi,
+  ];
+  for (const pat of rendaPatterns) {
+    for (const m of [...history.matchAll(pat)]) {
+      let val = parseFloat(m[1].replace(/\./g, "").replace(",", "."));
+      if (m[0].toLowerCase().includes("mil") && val < 500) val *= 1000;
+      if (val >= 1500 && val <= 20000 && val > renda) renda = val;
     }
   }
+  if (renda > 0) data.renda = renda;
+
+  // Tipo de renda
+  if (lower.includes("clt") || lower.includes("carteira assinada")) data.tipo = "clt";
+  else if (lower.includes("empresa") || lower.includes("simples nacional") || lower.includes("lucro presumido")) data.tipo = "empresa";
+  else if (lower.includes("mei") || lower.includes("autônomo") || lower.includes("autonomo") || lower.includes("informal") || lower.includes("renda própria") || lower.includes("renda propria")) data.tipo = "autonomo";
+
+  // Cotista FGTS
+  data.cotista = lower.includes("fgts") && (lower.includes("cotista") || lower.includes("tenho fgts") || lower.includes("sim") || lower.includes("usar fgts"));
+
+  // Dependentes
+  data.comDependente = lower.includes("filho") || lower.includes("dependente") || lower.includes("criança");
 
   // Imóvel de interesse
-  let imovelValor = null;
-  let imovelNome = null;
-  if (imovelInteresse) {
-    const imovel = catalog.find(i => i.nome.toLowerCase().includes(imovelInteresse.toLowerCase()));
-    if (imovel) {
-      // Valor estimado = entrada + financiamento típico (entrada é ~20% do valor)
-      imovelValor = imovel.entrada / 0.20;
-      imovelNome = imovel.nome;
-    }
+  const imovelKeys = {
+    pilar: ["pilar", "noroeste", "atacadao"],
+    botanico: ["botanico", "botânico"],
+    della: ["della penna", "della", "penna", "eternit"],
+    nacoes: ["nacoes", "nações", "setor das nações"],
+    santafe: ["santa fe", "santa fé"],
+  };
+  for (const [key, terms] of Object.entries(imovelKeys)) {
+    if (terms.some(t => lower.includes(t))) { data.imovelKey = key; break; }
   }
 
-  return simular({ renda, tipo, idade, fgts, imovelValor, imovelNome });
+  return data;
 }
 
-// Busca base64 do áudio
+// Verifica se tem dados suficientes para simular
+function podeSimular(data) {
+  return data.renda > 0 && data.imovelKey && imoveisSimulacao[data.imovelKey];
+}
+
+// Salvar dados no banco
+function salvarLead(phone, data) {
+  const leadData = {};
+  if (data.nome) leadData.nome = data.nome;
+  if (data.data_nascimento) leadData.data_nascimento = data.data_nascimento;
+  if (data.renda) leadData.renda_mensal = String(data.renda);
+  if (data.tipo) leadData.tipo_renda = data.tipo;
+  if (data.imovelKey) leadData.imovel_interesse = imoveisSimulacao[data.imovelKey]?.nome;
+  if (Object.keys(leadData).length > 0) upsertLead(phone, leadData);
+}
+
+// ── ÁUDIO ────────────────────────────────────────────────────────────────────
+
 async function getAudioBase64(message) {
   try {
     const resp = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`, {
@@ -148,7 +140,8 @@ async function getAudioBase64(message) {
   }
 }
 
-// Verificação Meta
+// ── WEBHOOK ───────────────────────────────────────────────────────────────────
+
 app.get("/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
     res.send(req.query["hub.challenge"]);
@@ -157,7 +150,6 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// Webhook principal
 app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 
@@ -215,7 +207,7 @@ app.post("/webhook", async (req, res) => {
 
     session.addMessage("user", userText);
 
-    // Handoff
+    // Handoff manual
     const handoffRequest = detectHandoffTrigger(userText);
     if (handoffRequest) {
       session.waitingForHuman = true;
@@ -224,17 +216,14 @@ app.post("/webhook", async (req, res) => {
       await sendWhatsAppMessage(phone, msg);
       await logMensagem(phone, "bot", msg);
       const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
-      if (TEAM_NUMBER) {
-        const alert = formatHandoffAlert(phone, session, handoffRequest);
-        await sendWhatsAppMessage(TEAM_NUMBER, alert);
-      }
+      if (TEAM_NUMBER) await sendWhatsAppMessage(TEAM_NUMBER, formatHandoffAlert(phone, session, handoffRequest));
       return;
     }
 
-    // Pedido de fotos
+    // Fotos
     const imovelComFotos = detectPhotoRequest(userText);
     if (imovelComFotos) {
-      if (imovelComFotos.fotos && imovelComFotos.fotos.length > 0) {
+      if (imovelComFotos.fotos?.length > 0) {
         const msg1 = `📸 Veja as fotos do *${imovelComFotos.nome}*:`;
         await sendWhatsAppMessage(phone, msg1);
         await logMensagem(phone, "bot", msg1);
@@ -242,21 +231,19 @@ app.post("/webhook", async (req, res) => {
           await sendWhatsAppImage(phone, foto);
           await new Promise(r => setTimeout(r, 800));
         }
-        const msg2 = `Gostou? 😍 Você pode ver mais detalhes no nosso site:\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠`;
+        const msg2 = `Gostou? 😍 Veja mais no nosso site:\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠`;
         await sendWhatsAppMessage(phone, msg2);
         await logMensagem(phone, "bot", msg2);
         session.addMessage("assistant", `[Enviou ${imovelComFotos.fotos.length} fotos do ${imovelComFotos.nome}]`);
-        sessionManager.save(phone, session);
-        await upsertLead(phone, { imovel_interesse: imovelComFotos.nome });
-        return;
       } else {
-        const msg = `Ainda não tenho fotos disponíveis aqui, mas você pode ver mais no nosso site 👇\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠😊`;
+        const msg = `Ainda não tenho fotos disponíveis, mas você pode ver no nosso site 👇\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita! 🏠😊`;
         await sendWhatsAppMessage(phone, msg);
         await logMensagem(phone, "bot", msg);
-        session.addMessage("assistant", `[Informou que não há fotos do ${imovelComFotos.nome}]`);
-        sessionManager.save(phone, session);
-        return;
+        session.addMessage("assistant", `[Sem fotos do ${imovelComFotos.nome}]`);
       }
+      sessionManager.save(phone, session);
+      await upsertLead(phone, { imovel_interesse: imovelComFotos.nome });
+      return;
     }
 
     // Resposta da IA
@@ -276,50 +263,74 @@ app.post("/webhook", async (req, res) => {
     await sendWhatsAppMessage(phone, reply);
     await logMensagem(phone, "bot", reply);
 
-    // Salvar lead
-    const leadData = extractLeadData(session.getHistory());
-    if (leadData) await upsertLead(phone, leadData);
+    // ── SIMULAÇÃO AUTOMÁTICA ─────────────────────────────────────────────────
+    // Detecta se a IA acabou de coletar todos os dados (menciona "anotei tudo" ou similar)
+    const coletouDados = reply.toLowerCase().includes("anotei tudo") ||
+                         reply.toLowerCase().includes("aguarde") ||
+                         reply.toLowerCase().includes("alguns instantes") ||
+                         reply.toLowerCase().includes("nossa equipe vai retornar");
+
+    if (coletouDados) {
+      const leadData = extractLeadFromHistory(session.getHistory());
+      salvarLead(phone, leadData);
+
+      if (podeSimular(leadData)) {
+        console.log(`[${phone}] 🧮 Calculando simulação automática...`, leadData);
+        await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
+
+        try {
+          const resultado = simular({
+            renda: leadData.renda,
+            cotista: leadData.cotista || false,
+            comDependente: leadData.comDependente || false,
+            idade: leadData.idade || 35,
+            fgts: 0,
+            imovelKey: leadData.imovelKey,
+          });
+
+          const textoSim = formatarSimulacao(resultado, leadData.nome || "");
+          await sendWhatsAppMessage(phone, textoSim);
+          await logMensagem(phone, "bot", textoSim);
+          session.addMessage("assistant", "[Simulação enviada automaticamente]");
+          sessionManager.save(phone, session);
+          await upsertLead(phone, { agendou: true });
+        } catch (simErr) {
+          console.error(`[${phone}] Erro na simulação:`, simErr.message);
+        }
+      }
+
+      // Handoff automático após coleta
+      session.waitingForHuman = true;
+      sessionManager.save(phone, session);
+      const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
+      if (TEAM_NUMBER) {
+        const leadData2 = extractLeadFromHistory(session.getHistory());
+        const alertMsg = formatHandoffAlert(phone, session, "dados_coletados");
+        await sendWhatsAppMessage(TEAM_NUMBER, alertMsg);
+      }
+    }
 
   } catch (err) {
     console.error("Erro no webhook:", err.message);
   }
 });
 
-// Servir painel do simulador
+// ── ENDPOINTS ─────────────────────────────────────────────────────────────────
+
 app.get("/painel", (req, res) => {
   const html = readFileSync("./painel.html", "utf8");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(html);
 });
 
-// Endpoint para Ricardo fazer simulação manualmente e enviar pelo bot
 app.post("/simular/:phone", async (req, res) => {
   try {
     const { phone } = req.params;
-    const { renda, tipo, idade, fgts, imovel, nome_cliente, texto_customizado } = req.body;
-
-    let texto;
-    if (texto_customizado) {
-      texto = texto_customizado;
-    } else {
-      const imovelObj = catalog.find(i => i.nome.toLowerCase().includes((imovel || "").toLowerCase()));
-      const imovelValor = imovelObj ? imovelObj.entrada / 0.20 : null;
-      const resultado = simular({
-        renda: parseFloat(renda),
-        tipo: tipo || "autonomo",
-        idade: parseInt(idade) || 35,
-        fgts: parseFloat(fgts) || 0,
-        imovelValor,
-        imovelNome: imovelObj?.nome
-      });
-      texto = formatarSimulacao(resultado, nome_cliente);
-    }
-
+    const { texto_customizado, nome_cliente } = req.body;
     const phone55 = phone.startsWith("55") ? phone : `55${phone}`;
-    await sendWhatsAppMessage(phone55, texto);
-    await logMensagem(phone55, "bot", texto);
-
-    res.json({ ok: true, mensagem: texto });
+    await sendWhatsAppMessage(phone55, texto_customizado);
+    await logMensagem(phone55, "bot", texto_customizado);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

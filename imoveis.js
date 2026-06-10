@@ -22,14 +22,14 @@ export const catalog = [
     fotos: []
   },
   {
-    nome: "Casa 3 Quartos — Região Noroeste",
+    nome: "Casa 3 Quartos — Pilar dos Sonhos (Região Noroeste)",
     quartos: 3,
-    bairro: "Região Noroeste, Goiânia/GO",
+    bairro: "Pilar dos Sonhos, Região Noroeste, Goiânia/GO",
     referencia: "Ao lado do Supermercado Atacadão, 5 min do Portal Shopping",
     entrada: 15000,
     renda_minima: 8000,
-    descricao: "Casa 3 quartos com quintal. Excelente localização na Região Noroeste, próxima a comércio e serviços.",
-    diferenciais: ["3 quartos", "Quintal", "Ao lado do Atacadão", "5 min do Portal Shopping"],
+    descricao: "Casa 3 quartos com quintal. Excelente localização na Região Noroeste, ao lado do Supermercado Atacadão e a apenas 5 min do Portal Shopping. Condições facilitadas pelo MCMV.",
+    diferenciais: ["3 quartos", "Quintal", "Excelente localização", "Ao lado do Atacadão", "5 min do Portal Shopping"],
     fotos: [
       "https://i.ibb.co/m548F58j/IMG-6528.jpg",
       "https://i.ibb.co/jZ6pgDBh/IMG-6530.jpg",
@@ -103,34 +103,6 @@ export const catalog = [
       "https://i.ibb.co/SY5DC6f/IMG-8375.jpg",
       "https://i.ibb.co/LX4jrf0R/IMG-8376.jpg",
       "https://i.ibb.co/ZpxD58mk/IMG-8383.jpg"
-    ]
-  },
-  {
-    nome: "Casa 3 Quartos — Pilar dos Sonhos",
-    quartos: 3,
-    bairro: "Pilar dos Sonhos, Goiânia/GO",
-    referencia: "Ao lado do Supermercado Atacadão, 5 min do Portal Shopping",
-    entrada: 15000,
-    renda_minima: 8000,
-    descricao: "Casa 3 quartos com quintal. Excelente localização, ao lado do Supermercado Atacadão e a apenas 5 min do Portal Shopping. Condições facilitadas pelo MCMV.",
-    diferenciais: ["3 quartos", "Quintal", "Excelente localização", "Ao lado do Atacadão", "5 min do Portal Shopping"],
-    fotos: [
-      "https://i.ibb.co/m548F58j/IMG-6528.jpg",
-      "https://i.ibb.co/jZ6pgDBh/IMG-6530.jpg",
-      "https://i.ibb.co/nMg7NKG6/IMG-6533.jpg",
-      "https://i.ibb.co/q3wCKQff/IMG-6543.jpg",
-      "https://i.ibb.co/xSXLpLWd/IMG-6548.jpg",
-      "https://i.ibb.co/FqJt63pW/IMG-6553.jpg",
-      "https://i.ibb.co/Qvqcvz8C/IMG-6558.jpg",
-      "https://i.ibb.co/mFgjL41C/IMG-6569.jpg",
-      "https://i.ibb.co/cSpQLf3P/IMG-6577.jpg",
-      "https://i.ibb.co/T9tFwzP/IMG-6582.jpg",
-      "https://i.ibb.co/QvFysr5q/IMG-6598.jpg",
-      "https://i.ibb.co/RGfdp2NJ/IMG-6603.jpg",
-      "https://i.ibb.co/bjbxPxBT/IMG-6608.jpg",
-      "https://i.ibb.co/yByyYYsW/IMG-6612.jpg",
-      "https://i.ibb.co/7d21x57b/IMG-6613.jpg",
-      "https://i.ibb.co/tw3Y7HM1/IMG-6618.jpg"
     ]
   },
 ];

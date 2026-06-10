@@ -3,7 +3,6 @@ const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "ed44cb6b57f549bd2e1a
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "bot-ricardo";
 
 export async function sendWhatsAppMessage(to, text) {
-  // Garantir formato correto do número
   const number = to.includes("@") ? to.replace("@s.whatsapp.net", "") : to;
 
   const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
@@ -12,15 +11,32 @@ export async function sendWhatsAppMessage(to, text) {
       "apikey": EVOLUTION_API_KEY,
       "Content-Type": "application/json",
     },
+    body: JSON.stringify({ number, text }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) console.error("Erro Evolution API (text):", JSON.stringify(data));
+  return data;
+}
+
+export async function sendWhatsAppImage(to, imageUrl, caption = "") {
+  const number = to.includes("@") ? to.replace("@s.whatsapp.net", "") : to;
+
+  const response = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`, {
+    method: "POST",
+    headers: {
+      "apikey": EVOLUTION_API_KEY,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
-      number: number,
-      text: text,
+      number,
+      mediatype: "image",
+      media: imageUrl,
+      caption,
     }),
   });
 
   const data = await response.json();
-  if (!response.ok) {
-    console.error("Erro Evolution API:", JSON.stringify(data));
-  }
+  if (!response.ok) console.error("Erro Evolution API (image):", JSON.stringify(data));
   return data;
 }

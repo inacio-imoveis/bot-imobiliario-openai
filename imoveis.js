@@ -9,23 +9,6 @@ export const catalog = [
     descricao: "Casa 2 quartos com mega quintal, excelente acabamento e ótima localização na Região da Eternit. Pode usar FGTS na entrada. Última oportunidade!",
     diferenciais: ["2 quartos", "Mega quintal amplo", "Excelente acabamento", "Ótima localização", "Pode usar FGTS na entrada"],
     fotos: [
-      "https://i.ibb.co/m548F58j/IMG-6528.jpg",
-      "https://i.ibb.co/jZ6pgDBh/IMG-6530.jpg",
-      "https://i.ibb.co/nMg7NKG6/IMG-6533.jpg",
-      "https://i.ibb.co/q3wCKQff/IMG-6543.jpg",
-      "https://i.ibb.co/xSXLpLWd/IMG-6548.jpg",
-      "https://i.ibb.co/FqJt63pW/IMG-6553.jpg",
-      "https://i.ibb.co/Qvqcvz8C/IMG-6558.jpg",
-      "https://i.ibb.co/mFgjL41C/IMG-6569.jpg",
-      "https://i.ibb.co/cSpQLf3P/IMG-6577.jpg",
-      "https://i.ibb.co/T9tFwzP/IMG-6582.jpg",
-      "https://i.ibb.co/QvFysr5q/IMG-6598.jpg",
-      "https://i.ibb.co/RGfdp2NJ/IMG-6603.jpg",
-      "https://i.ibb.co/bjbxPxBT/IMG-6608.jpg",
-      "https://i.ibb.co/yByyYYsW/IMG-6612.jpg",
-      "https://i.ibb.co/7d21x57b/IMG-6613.jpg",
-      "https://i.ibb.co/tw3Y7HM1/IMG-6618.jpg",
-      "https://i.ibb.co/Xrch67Zm/IMG-5897.jpg",
       "https://i.ibb.co/RGsy4XMN/IMG-3311.jpg",
       "https://i.ibb.co/QjCq5mj5/IMG-3314.jpg",
       "https://i.ibb.co/gMR7Hyz5/IMG-3316.jpg",
@@ -37,7 +20,8 @@ export const catalog = [
       "https://i.ibb.co/4wfMv3sk/IMG-5693.jpg",
       "https://i.ibb.co/ynqH5yCN/IMG-5697.jpg",
       "https://i.ibb.co/LzkXFk7X/IMG-5883.jpg",
-      "https://i.ibb.co/ycsyw09G/IMG-5894.jpg"
+      "https://i.ibb.co/ycsyw09G/IMG-5894.jpg",
+      "https://i.ibb.co/Xrch67Zm/IMG-5897.jpg"
     ]
   },
   {

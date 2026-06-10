@@ -1,4 +1,5 @@
 import express from "express";
+import { readFileSync } from "fs";
 import OpenAI from "openai";
 import { catalog } from "./imoveis.js";
 import { sessionManager } from "./sessions.js";
@@ -284,29 +285,41 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Servir painel do simulador
+app.get("/painel", (req, res) => {
+  const html = readFileSync("./painel.html", "utf8");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
+});
+
 // Endpoint para Ricardo fazer simulação manualmente e enviar pelo bot
 app.post("/simular/:phone", async (req, res) => {
   try {
     const { phone } = req.params;
-    const { renda, tipo, idade, fgts, imovel, nome_cliente } = req.body;
+    const { renda, tipo, idade, fgts, imovel, nome_cliente, texto_customizado } = req.body;
 
-    const imovelObj = catalog.find(i => i.nome.toLowerCase().includes((imovel || "").toLowerCase()));
-    const imovelValor = imovelObj ? imovelObj.entrada / 0.20 : null;
+    let texto;
+    if (texto_customizado) {
+      texto = texto_customizado;
+    } else {
+      const imovelObj = catalog.find(i => i.nome.toLowerCase().includes((imovel || "").toLowerCase()));
+      const imovelValor = imovelObj ? imovelObj.entrada / 0.20 : null;
+      const resultado = simular({
+        renda: parseFloat(renda),
+        tipo: tipo || "autonomo",
+        idade: parseInt(idade) || 35,
+        fgts: parseFloat(fgts) || 0,
+        imovelValor,
+        imovelNome: imovelObj?.nome
+      });
+      texto = formatarSimulacao(resultado, nome_cliente);
+    }
 
-    const resultado = simular({
-      renda: parseFloat(renda),
-      tipo: tipo || "autonomo",
-      idade: parseInt(idade) || 35,
-      fgts: parseFloat(fgts) || 0,
-      imovelValor,
-      imovelNome: imovelObj?.nome
-    });
+    const phone55 = phone.startsWith("55") ? phone : `55${phone}`;
+    await sendWhatsAppMessage(phone55, texto);
+    await logMensagem(phone55, "bot", texto);
 
-    const texto = formatarSimulacao(resultado, nome_cliente);
-    await sendWhatsAppMessage(phone, texto);
-    await logMensagem(phone, "bot", texto);
-
-    res.json({ ok: true, simulacao: resultado, mensagem: texto });
+    res.json({ ok: true, mensagem: texto });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

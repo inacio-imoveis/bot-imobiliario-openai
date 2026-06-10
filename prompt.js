@@ -70,6 +70,7 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
    • Autorização para consulta do FGTS
 
    ⚠️ O banco pode pedir outros documentos durante a análise.
+   ⚠️ Se for casado ou tiver mais de um comprador, todos os documentos acima devem ser enviados de ambos.
 
    Quer que eu faça uma simulação personalizada pra você? 😊"
 

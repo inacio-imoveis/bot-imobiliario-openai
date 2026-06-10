@@ -7,6 +7,7 @@ import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
+import { simular, formatarSimulacao } from "./simulador.js";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -41,23 +42,95 @@ function detectPhotoRequest(text) {
   return null;
 }
 
-// Extrai dados de lead
+// Extrai dados de lead da sessão e tenta montar simulação
 function extractLeadData(messages) {
-  const history = messages.map(m => m.content).join("\n").toLowerCase();
+  const history = messages.map(m => m.content).join("\n");
+  const lower = history.toLowerCase();
   const data = {};
-  const nomeMatch = history.match(/nome completo[:\s]+([^\n\d]+)/i);
-  if (nomeMatch) data.nome = nomeMatch[1].trim().substring(0, 200);
-  const nascMatch = history.match(/data de nascimento[:\s]+([^\n]+)/i);
-  if (nascMatch) data.data_nascimento = nascMatch[1].trim().substring(0, 50);
-  const rendaMatch = history.match(/renda mensal[:\s]+([^\n]+)/i);
-  if (rendaMatch) data.renda_mensal = rendaMatch[1].trim().substring(0, 100);
-  const tipoMatch = history.match(/(clt|mei|renda informal|autonomo)/i);
-  if (tipoMatch) data.tipo_renda = tipoMatch[1].trim().substring(0, 100);
-  if (history.includes("calendar.app.google")) data.agendou = true;
+
+  const nomeMatch = history.match(/(?:nome completo|nome)[:\s*]+([A-Za-zÀ-ú\s]{5,60})/i);
+  if (nomeMatch) data.nome = nomeMatch[1].trim();
+
+  const nascMatch = history.match(/(\d{2}\/\d{2}\/\d{4}|\d{4})/);
+  if (nascMatch) data.data_nascimento = nascMatch[1].trim();
+
+  const rendaMatch = history.match(/r\$?\s*([\d.,]+)\s*mil|renda[^R\n]*R\$?\s*([\d.,]+)/i);
+  if (rendaMatch) data.renda_mensal = (rendaMatch[1] || rendaMatch[2] || "").trim();
+
+  if (lower.includes("clt") || lower.includes("carteira assinada")) data.tipo_renda = "clt";
+  else if (lower.includes("mei")) data.tipo_renda = "mei";
+  else if (lower.includes("autônomo") || lower.includes("autonomo") || lower.includes("informal") || lower.includes("renda própria") || lower.includes("renda propria")) data.tipo_renda = "autonomo";
+  else if (lower.includes("empresa") || lower.includes("simples") || lower.includes("lucro")) data.tipo_renda = "empresa";
+
+  if (lower.includes("fgts")) data.usa_fgts = true;
+  if (lower.includes("casado") || lower.includes("dois compradores") || lower.includes("comprador junto")) data.comprador_conjunto = true;
+
   return Object.keys(data).length > 0 ? data : null;
 }
 
-// Busca base64 do áudio via Evolution API
+// Tenta extrair dados suficientes para simular
+function trySimular(session, imovelInteresse) {
+  const history = session.getHistory().map(m => m.content).join("\n");
+  const lower = history.toLowerCase();
+
+  // Renda
+  let renda = 0;
+  const rendaMatches = [...history.matchAll(/(?:renda|ganho|recebo)[^R\n]*?R?\$?\s*([\d.,]+)\s*(?:mil|k)?/gi)];
+  for (const m of rendaMatches) {
+    let val = parseFloat(m[1].replace(/\./g, "").replace(",", "."));
+    if (val < 500) val *= 1000; // ex: "10 mil" → 10000
+    if (val > renda) renda = val;
+  }
+  // Tenta pegar números simples como "10 mil" ou "10000"
+  if (renda === 0) {
+    const simples = history.match(/\b(\d+)\s*mil\b/i);
+    if (simples) renda = parseFloat(simples[1]) * 1000;
+  }
+
+  if (renda === 0) return null;
+
+  // Tipo
+  let tipo = "autonomo";
+  if (lower.includes("clt") || lower.includes("carteira assinada")) tipo = "clt";
+  else if (lower.includes("empresa") || lower.includes("simples nacional")) tipo = "empresa";
+
+  // Idade
+  let idade = 35; // padrão
+  const nascMatch = history.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (nascMatch) {
+    const anoNasc = parseInt(nascMatch[3]);
+    idade = new Date().getFullYear() - anoNasc;
+  } else {
+    const idadeMatch = history.match(/(\d{2})\s*anos/i);
+    if (idadeMatch) idade = parseInt(idadeMatch[1]);
+  }
+
+  // FGTS
+  let fgts = 0;
+  if (lower.includes("fgts")) {
+    const fgtsMatch = history.match(/fgts[^R\n]*?R?\$?\s*([\d.,]+)/i);
+    if (fgtsMatch) {
+      fgts = parseFloat(fgtsMatch[1].replace(/\./g, "").replace(",", "."));
+      if (fgts < 500) fgts *= 1000;
+    }
+  }
+
+  // Imóvel de interesse
+  let imovelValor = null;
+  let imovelNome = null;
+  if (imovelInteresse) {
+    const imovel = catalog.find(i => i.nome.toLowerCase().includes(imovelInteresse.toLowerCase()));
+    if (imovel) {
+      // Valor estimado = entrada + financiamento típico (entrada é ~20% do valor)
+      imovelValor = imovel.entrada / 0.20;
+      imovelNome = imovel.nome;
+    }
+  }
+
+  return simular({ renda, tipo, idade, fgts, imovelValor, imovelNome });
+}
+
+// Busca base64 do áudio
 async function getAudioBase64(message) {
   try {
     const resp = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`, {
@@ -99,27 +172,18 @@ app.post("/webhook", async (req, res) => {
       if (key.remoteJid?.includes("@g.us")) return;
 
       const msg = data.message || {};
-
-      // Detectar áudio (PTT = Push To Talk = gravado no app; audioMessage = arquivo de áudio)
       const isAudio = !!(msg.audioMessage || msg.pttMessage);
 
       if (isAudio) {
-        console.log(`[${phone}] 🎙️ Áudio recebido — buscando base64...`);
+        console.log(`[${phone}] 🎙️ Áudio recebido — transcrevendo...`);
         const base64 = await getAudioBase64({ key, message: msg });
-
-        if (base64) {
-          console.log(`[${phone}] 🎙️ Base64 obtido — transcrevendo com Whisper...`);
-          userText = await transcribeBase64Audio(base64);
-        }
-
+        if (base64) userText = await transcribeBase64Audio(base64);
         if (!userText) {
           await sendWhatsAppMessage(phone, "Recebi seu áudio, mas não consegui entender. Pode digitar sua mensagem? 😊");
           return;
         }
-
         console.log(`[${phone}] 🎙️ Transcrição: "${userText}"`);
         await sendWhatsAppMessage(phone, `🎙️ _Entendi: "${userText}"_`);
-
       } else {
         userText = msg.conversation || msg.extendedTextMessage?.text || msg.text || null;
       }
@@ -211,11 +275,40 @@ app.post("/webhook", async (req, res) => {
     await sendWhatsAppMessage(phone, reply);
     await logMensagem(phone, "bot", reply);
 
+    // Salvar lead
     const leadData = extractLeadData(session.getHistory());
     if (leadData) await upsertLead(phone, leadData);
 
   } catch (err) {
     console.error("Erro no webhook:", err.message);
+  }
+});
+
+// Endpoint para Ricardo fazer simulação manualmente e enviar pelo bot
+app.post("/simular/:phone", async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const { renda, tipo, idade, fgts, imovel, nome_cliente } = req.body;
+
+    const imovelObj = catalog.find(i => i.nome.toLowerCase().includes((imovel || "").toLowerCase()));
+    const imovelValor = imovelObj ? imovelObj.entrada / 0.20 : null;
+
+    const resultado = simular({
+      renda: parseFloat(renda),
+      tipo: tipo || "autonomo",
+      idade: parseInt(idade) || 35,
+      fgts: parseFloat(fgts) || 0,
+      imovelValor,
+      imovelNome: imovelObj?.nome
+    });
+
+    const texto = formatarSimulacao(resultado, nome_cliente);
+    await sendWhatsAppMessage(phone, texto);
+    await logMensagem(phone, "bot", texto);
+
+    res.json({ ok: true, simulacao: resultado, mensagem: texto });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

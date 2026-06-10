@@ -3,181 +3,82 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simulador — Ricardo Inácio Imóveis</title>
+<title>Simulador MCMV — Ricardo Inácio Imóveis</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: #0f1923;
-    color: #e8e0d4;
-    min-height: 100vh;
-    padding: 16px;
-  }
-  .header { text-align: center; padding: 24px 0 20px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1923; color: #e8e0d4; min-height: 100vh; padding: 16px; }
+  .header { text-align: center; padding: 22px 0 18px; }
   .header h1 { font-size: 20px; font-weight: 800; color: #c9a84c; }
-  .header p { font-size: 12px; color: #8a8070; margin-top: 4px; }
-
-  .card {
-    background: #1a2530;
-    border-radius: 16px;
-    padding: 20px;
-    max-width: 480px;
-    margin: 0 auto;
-    border: 1px solid #2a3540;
-  }
-
-  .section { margin-bottom: 22px; }
-  .section-title {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1.8px;
-    text-transform: uppercase;
-    color: #c9a84c;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #2a3540;
-  }
-
-  .field { margin-bottom: 12px; }
-  label { display: block; font-size: 11px; font-weight: 700; color: #8a8070; margin-bottom: 5px; letter-spacing: 0.3px; }
-  input, select {
-    width: 100%;
-    background: #0f1923;
-    border: 1px solid #2a3540;
-    border-radius: 10px;
-    padding: 11px 13px;
-    color: #e8e0d4;
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.2s;
-    -webkit-appearance: none;
-  }
+  .header p { font-size: 11px; color: #8a8070; margin-top: 3px; }
+  .card { background: #1a2530; border-radius: 16px; padding: 20px; max-width: 480px; margin: 0 auto; border: 1px solid #2a3540; }
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: #c9a84c; margin-bottom: 12px; padding-bottom: 7px; border-bottom: 1px solid #2a3540; }
+  .field { margin-bottom: 11px; }
+  label { display: block; font-size: 11px; font-weight: 700; color: #8a8070; margin-bottom: 5px; }
+  input, select { width: 100%; background: #0f1923; border: 1px solid #2a3540; border-radius: 10px; padding: 11px 13px; color: #e8e0d4; font-size: 15px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
   input:focus, select:focus { border-color: #c9a84c; }
   input::placeholder { color: #3a4550; }
   select option { background: #1a2530; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  /* Toggle cotista */
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #0f1923;
-    border: 1px solid #2a3540;
-    border-radius: 10px;
-    padding: 11px 13px;
-  }
-  .toggle-label { font-size: 14px; color: #e8e0d4; }
-  .toggle-sub { font-size: 11px; color: #8a8070; }
-  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  /* Toggle */
+  .toggle-group { display: flex; flex-direction: column; gap: 8px; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; background: #0f1923; border: 1px solid #2a3540; border-radius: 10px; padding: 10px 13px; }
+  .toggle-text { font-size: 13px; color: #e8e0d4; }
+  .toggle-sub { font-size: 11px; color: #8a8070; margin-top: 2px; }
+  .switch { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
   .switch input { opacity: 0; width: 0; height: 0; }
-  .slider {
-    position: absolute; inset: 0;
-    background: #2a3540; border-radius: 24px; cursor: pointer;
-    transition: background 0.2s;
-  }
-  .slider:before {
-    content: ""; position: absolute;
-    width: 18px; height: 18px; left: 3px; top: 3px;
-    background: #fff; border-radius: 50%;
-    transition: transform 0.2s;
-  }
+  .slider { position: absolute; inset: 0; background: #2a3540; border-radius: 22px; cursor: pointer; transition: background 0.2s; }
+  .slider:before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
   input:checked + .slider { background: #c9a84c; }
   input:checked + .slider:before { transform: translateX(20px); }
 
+  .faixa-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; margin-top: 8px; }
+  .faixa-ok { background: #1a3a20; color: #4caf8a; border: 1px solid #2a5a30; }
+  .faixa-warn { background: #3a2010; color: #e09050; border: 1px solid #5a3010; }
+  .faixa-err { background: #3a1010; color: #e05a5a; border: 1px solid #5a1010; }
+
+  .aviso-interno { background: #1a1800; border: 1px solid #3a3200; border-radius: 8px; padding: 9px 12px; font-size: 11px; color: #8a7820; margin-bottom: 14px; display: none; }
+  .aviso-interno.visible { display: block; }
+
   /* Resultado */
-  .resultado {
-    background: #0f1923;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    border: 1px solid #2a3540;
-    display: none;
-  }
+  .resultado { background: #0f1923; border-radius: 12px; padding: 16px; margin-bottom: 14px; border: 1px solid #2a3540; display: none; }
   .resultado.visible { display: block; }
   .res-title { font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: #c9a84c; margin-bottom: 12px; }
+  .res-faixa { font-size: 11px; font-weight: 700; color: #4caf8a; margin-bottom: 10px; background: #1a3a20; border: 1px solid #2a5a30; display: inline-block; padding: 3px 10px; border-radius: 20px; }
   .res-line { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #1a2530; font-size: 13px; }
   .res-line:last-child { border-bottom: none; }
-  .res-lbl { color: #8a8070; }
+  .res-lbl { color: #8a8070; font-size: 12px; }
   .res-val { font-weight: 700; color: #e8e0d4; text-align: right; }
-  .res-val.gold { color: #c9a84c; font-size: 17px; }
+  .res-val.gold { color: #c9a84c; font-size: 16px; }
   .res-val.green { color: #4caf8a; }
+  .res-val.blue { color: #5ab4e0; }
   .res-val.red { color: #e05a5a; }
 
-  .faixa-badge {
-    display: inline-block;
-    background: #c9a84c22;
-    color: #c9a84c;
-    border: 1px solid #c9a84c44;
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 700;
-    margin-bottom: 12px;
-  }
+  /* WhatsApp preview */
+  .wpp-wrap { display: none; margin-bottom: 12px; }
+  .wpp-wrap.visible { display: block; }
+  .wpp-label { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #4caf8a; margin-bottom: 7px; }
+  .wpp-box { background: #0a1a0f; border: 1px solid #1a3a1f; border-radius: 12px; padding: 13px; font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: #c8e0c8; max-height: 260px; overflow-y: auto; }
 
-  /* Preview WhatsApp */
-  .wpp-preview {
-    background: #0a1a0f;
-    border: 1px solid #1a3a1f;
-    border-radius: 12px;
-    padding: 14px;
-    font-size: 13px;
-    line-height: 1.65;
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: #c8e0c8;
-    margin-bottom: 14px;
-    display: none;
-    max-height: 280px;
-    overflow-y: auto;
-  }
-  .wpp-preview.visible { display: block; }
-  .wpp-header { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #4caf8a; margin-bottom: 8px; }
-
-  /* Botões */
-  .btn {
-    width: 100%;
-    border: none;
-    border-radius: 12px;
-    padding: 15px;
-    font-size: 15px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    margin-bottom: 10px;
-    letter-spacing: 0.2px;
-  }
+  .btn { width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 800; cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-bottom: 9px; }
   .btn:active { transform: scale(0.98); }
   .btn-calc { background: #c9a84c; color: #0f1923; }
   .btn-calc:hover { background: #d4b55e; }
   .btn-send { background: #25D366; color: #fff; display: none; }
   .btn-send.visible { display: block; }
-  .btn-send:hover { background: #20bc5a; }
   .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  .status { text-align: center; font-size: 12px; min-height: 18px; color: #8a8070; margin-top: 4px; }
+  .status { text-align: center; font-size: 12px; min-height: 16px; color: #8a8070; margin-top: 3px; }
   .status.ok { color: #4caf8a; }
   .status.err { color: #e05a5a; }
 
-  .aviso {
-    background: #1a1a0a;
-    border: 1px solid #3a3010;
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 11px;
-    color: #8a7030;
-    margin-bottom: 16px;
-    display: none;
-  }
-  .aviso.visible { display: block; }
+  .sep { height: 1px; background: #2a3540; margin: 16px 0; }
 </style>
 </head>
 <body>
-
 <div class="header">
   <h1>📊 Simulador MCMV</h1>
-  <p>Ricardo Inácio Imóveis · Uso interno</p>
+  <p>Ricardo Inácio Imóveis · Tabela Caixa/Audicred · Goiânia/GO</p>
 </div>
 
 <div class="card">
@@ -202,7 +103,7 @@
     <div class="section-title">Imóvel</div>
     <div class="field">
       <label>Selecione o imóvel</label>
-      <select id="imovel" onchange="atualizarInfoImovel()">
+      <select id="imovel" onchange="atualizarImovel()">
         <option value="">— Selecione —</option>
         <option value="pilar">Pilar dos Sonhos</option>
         <option value="botanico">Botânico</option>
@@ -211,15 +112,15 @@
         <option value="santafe">Santa Fé</option>
       </select>
     </div>
-    <div class="aviso" id="info-imovel"></div>
+    <div class="aviso-interno" id="aviso-interno"></div>
   </div>
 
-  <!-- PERFIL FINANCEIRO -->
+  <!-- PERFIL -->
   <div class="section">
     <div class="section-title">Perfil financeiro</div>
     <div class="row">
       <div class="field">
-        <label>Renda familiar (R$)</label>
+        <label>Renda familiar bruta (R$)</label>
         <input type="number" id="renda" placeholder="5000" min="0" oninput="atualizarFaixa()">
       </div>
       <div class="field">
@@ -227,55 +128,64 @@
         <input type="number" id="idade" placeholder="35" min="18" max="79">
       </div>
     </div>
+    <div id="faixa-display" style="margin-bottom:12px; min-height:24px;"></div>
 
-    <div class="field">
-      <label>Faixa MCMV</label>
-      <div id="faixa-info" style="font-size:13px; color:#8a8070; padding: 8px 0;">← informe a renda</div>
-    </div>
-
-    <div class="field">
-      <label>Cotista FGTS? (tem FGTS para usar na entrada)</label>
+    <div class="toggle-group">
       <div class="toggle-row">
         <div>
-          <div class="toggle-label">Usar FGTS na entrada</div>
-          <div class="toggle-sub" id="taxa-label">Taxa: —</div>
+          <div class="toggle-text">Cotista FGTS</div>
+          <div class="toggle-sub" id="taxa-label">Tem FGTS ativo (taxa menor)</div>
         </div>
         <label class="switch">
           <input type="checkbox" id="cotista" onchange="atualizarFaixa()">
           <span class="slider"></span>
         </label>
       </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-text">Tem filhos ou dependentes?</div>
+          <div class="toggle-sub">Influencia no valor do subsídio</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="dependente">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
 
-    <div class="field" id="campo-fgts" style="display:none">
+    <div class="field" id="campo-fgts" style="display:none; margin-top:10px;">
       <label>Valor do FGTS disponível (R$)</label>
       <input type="number" id="fgts" placeholder="0" min="0">
     </div>
   </div>
 
-  <!-- BOTÃO CALCULAR -->
   <button class="btn btn-calc" onclick="calcular()">⚡ Calcular simulação</button>
 
   <!-- RESULTADO -->
   <div class="resultado" id="resultado">
-    <div class="res-title">Resultado da simulação</div>
-    <div id="faixa-badge-res" class="faixa-badge"></div>
+    <div class="res-title">Resultado</div>
+    <div class="res-faixa" id="r-faixa"></div>
     <div class="res-line">
       <span class="res-lbl">Valor do imóvel</span>
       <span class="res-val" id="r-venda"></span>
     </div>
     <div class="res-line">
-      <span class="res-lbl">Valor financiado (Caixa)</span>
+      <span class="res-lbl">Financiado pela Caixa</span>
       <span class="res-val gold" id="r-financiado"></span>
+    </div>
+    <div class="res-line" id="linha-subsidio" style="display:none">
+      <span class="res-lbl">🎁 Subsídio do governo</span>
+      <span class="res-val blue" id="r-subsidio"></span>
     </div>
     <div class="res-line">
       <span class="res-lbl">Entrada necessária</span>
       <span class="res-val green" id="r-entrada"></span>
     </div>
     <div class="res-line" id="linha-fgts" style="display:none">
-      <span class="res-lbl">Entrada c/ FGTS</span>
+      <span class="res-lbl">Entrada com FGTS</span>
       <span class="res-val green" id="r-entrada-fgts"></span>
     </div>
+    <div class="sep"></div>
     <div class="res-line">
       <span class="res-lbl">Parcela inicial</span>
       <span class="res-val" id="r-parcela"></span>
@@ -298,17 +208,13 @@
     </div>
   </div>
 
-  <!-- PREVIEW WHATSAPP -->
-  <div id="wpp-wrap" style="display:none">
-    <div class="wpp-header">📱 Prévia — mensagem para o cliente</div>
-    <div class="wpp-preview visible" id="wpp-preview"></div>
+  <!-- PREVIEW WPP -->
+  <div class="wpp-wrap" id="wpp-wrap">
+    <div class="wpp-label">📱 Mensagem para o cliente</div>
+    <div class="wpp-box" id="wpp-box"></div>
   </div>
 
-  <!-- ENVIAR -->
-  <button class="btn btn-send visible" id="btn-send" onclick="enviar()" style="display:none">
-    📲 Enviar para o WhatsApp do cliente
-  </button>
-
+  <button class="btn btn-send" id="btn-send" onclick="enviar()">📲 Enviar para o WhatsApp do cliente</button>
   <div class="status" id="status"></div>
 
 </div>
@@ -324,17 +230,62 @@ const IMOVEIS = {
   santafe:  { nome: "Santa Fé",         venda: 300000, avaliacao: 343291 },
 };
 
-function fmt(v) {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+const TABELA = [
+  { min: 0,       max: 2160,  cot: 4.25, nao: 4.75, f: 1 },
+  { min: 2160.01, max: 2850,  cot: 4.50, nao: 5.00, f: 1 },
+  { min: 2850.01, max: 3200,  cot: 4.75, nao: 5.25, f: 1 },
+  { min: 3200.01, max: 3500,  cot: 5.00, nao: 5.50, f: 2 },
+  { min: 3500.01, max: 4000,  cot: 5.50, nao: 6.00, f: 2 },
+  { min: 4000.01, max: 5000,  cot: 6.50, nao: 7.00, f: 2 },
+  { min: 5000.01, max: 9600,  cot: 7.66, nao: 8.16, f: 3 },
+  { min: 9600.01, max: 13000, cot: 10.0, nao: 10.0, f: 4 },
+];
+
+const SUBSIDIOS = [
+  { min:1500,    max:2000,    cd:49500, sd:14850 },
+  { min:2000.01, max:2100,    cd:48619, sd:14795 },
+  { min:2100.01, max:2160,    cd:42849, sd:13051 },
+  { min:2160.01, max:2200,    cd:39595, sd:12066 },
+  { min:2200.01, max:2300,    cd:37823, sd:11520 },
+  { min:2300.01, max:2400,    cd:32881, sd:10024 },
+  { min:2400.01, max:2500,    cd:28350, sd:8650  },
+  { min:2500.01, max:2600,    cd:24219, sd:7396  },
+  { min:2600.01, max:2700,    cd:20476, sd:6259  },
+  { min:2700.01, max:2800,    cd:17113, sd:5236  },
+  { min:2800.01, max:2850,    cd:14117, sd:4323  },
+  { min:2850.01, max:2900,    cd:12753, sd:3907  },
+  { min:2900.01, max:3000,    cd:11607, sd:3553  },
+  { min:3000.01, max:3100,    cd:9294,  sd:2848  },
+  { min:3100.01, max:3200,    cd:7320,  sd:2245  },
+  { min:3200.01, max:3300,    cd:5674,  sd:1742  },
+  { min:3300.01, max:3400,    cd:4399,  sd:0     },
+  { min:3400.01, max:3500,    cd:3367,  sd:0     },
+  { min:3500.01, max:3600,    cd:2635,  sd:0     },
+  { min:3600.01, max:3700,    cd:2250,  sd:0     },
+  { min:3700.01, max:3800,    cd:2086,  sd:0     },
+  { min:3800.01, max:3900,    cd:2063,  sd:0     },
+  { min:3900.01, max:4000,    cd:2039,  sd:0     },
+  { min:4000.01, max:4100,    cd:2036,  sd:0     },
+  { min:4100.01, max:99999,   cd:0,     sd:0     },
+];
+
+function fmt(v) { return v.toLocaleString("pt-BR", { style:"currency", currency:"BRL" }); }
 function calcParcela(pv, taxa, n) {
   const i = taxa / 12 / 100;
   return pv * (i * Math.pow(1+i,n)) / (Math.pow(1+i,n) - 1);
 }
+function getTaxa(renda, cotista) {
+  return TABELA.find(t => renda >= t.min && renda <= t.max);
+}
+function getSubsidio(renda, comDep) {
+  const s = SUBSIDIOS.find(s => renda >= s.min && renda <= s.max);
+  if (!s) return 0;
+  return comDep ? s.cd : s.sd;
+}
 
-function atualizarInfoImovel() {
+function atualizarImovel() {
   const key = document.getElementById("imovel").value;
-  const div = document.getElementById("info-imovel");
+  const div = document.getElementById("aviso-interno");
   if (!key) { div.classList.remove("visible"); return; }
   const im = IMOVEIS[key];
   const fin = im.avaliacao * 0.80;
@@ -346,29 +297,20 @@ function atualizarInfoImovel() {
 function atualizarFaixa() {
   const renda = parseFloat(document.getElementById("renda").value) || 0;
   const cotista = document.getElementById("cotista").checked;
-  const faixaDiv = document.getElementById("faixa-info");
+  document.getElementById("campo-fgts").style.display = cotista ? "block" : "none";
+
+  const display = document.getElementById("faixa-display");
   const taxaLabel = document.getElementById("taxa-label");
-  const campoFGTS = document.getElementById("campo-fgts");
 
-  campoFGTS.style.display = cotista ? "block" : "none";
+  if (!renda) { display.innerHTML = ""; return; }
 
-  if (!renda) { faixaDiv.textContent = "← informe a renda"; return; }
+  const faixaData = getTaxa(renda, cotista);
+  if (!faixaData) { display.innerHTML = `<span class="faixa-pill faixa-err">Fora do limite MCMV</span>`; return; }
 
-  if (renda <= 2640) {
-    faixaDiv.innerHTML = `<span style="color:#e05a5a">⚠️ Renda abaixo da Faixa 2 mínima (R$ 2.640)</span>`;
-    taxaLabel.textContent = "Taxa: —";
-  } else if (renda <= 4400) {
-    faixaDiv.innerHTML = `<span style="color:#c9a84c">✅ Faixa 2 — Taxa 6% a.a.</span>`;
-    taxaLabel.textContent = "Taxa: 6% a.a. (Faixa 2)";
-  } else if (renda <= 8000) {
-    const taxa = cotista ? "7,66%" : "8,16%";
-    const tipo = cotista ? "Cotista FGTS" : "Não Cotista";
-    faixaDiv.innerHTML = `<span style="color:#4caf8a">✅ Faixa 3 — ${tipo} · Taxa ${taxa} a.a.</span>`;
-    taxaLabel.textContent = `Taxa: ${taxa} a.a. (${tipo})`;
-  } else {
-    faixaDiv.innerHTML = `<span style="color:#e05a5a">⚠️ Renda acima do limite MCMV (R$ 8.000)</span>`;
-    taxaLabel.textContent = "Taxa: —";
-  }
+  const taxa = cotista ? faixaData.cot : faixaData.nao;
+  const tipo = cotista ? "Cotista FGTS" : "Não Cotista";
+  display.innerHTML = `<span class="faixa-pill faixa-ok">Faixa ${faixaData.f} · ${taxa}% a.a. · ${tipo}</span>`;
+  taxaLabel.textContent = `Taxa aplicada: ${taxa}% a.a.`;
 }
 
 let textoSimulacao = null;
@@ -378,97 +320,92 @@ function calcular() {
   const renda = parseFloat(document.getElementById("renda").value);
   const idade = parseInt(document.getElementById("idade").value) || 35;
   const cotista = document.getElementById("cotista").checked;
+  const comDep = document.getElementById("dependente").checked;
   const fgts = parseFloat(document.getElementById("fgts").value) || 0;
   const nome = document.getElementById("nome").value.trim();
   const status = document.getElementById("status");
 
-  if (!key) { status.textContent = "⚠️ Selecione o imóvel."; status.className = "status err"; return; }
-  if (!renda || renda < 2640) { status.textContent = "⚠️ Renda mínima R$ 2.640."; status.className = "status err"; return; }
-  if (renda > 8000) { status.textContent = "⚠️ Renda acima do limite MCMV."; status.className = "status err"; return; }
-
   status.textContent = ""; status.className = "status";
 
+  if (!key) { status.textContent = "⚠️ Selecione o imóvel."; status.className = "status err"; return; }
+  if (!renda || renda <= 0) { status.textContent = "⚠️ Informe a renda."; status.className = "status err"; return; }
+
+  const faixaData = getTaxa(renda, cotista);
+  if (!faixaData) { status.textContent = "⚠️ Renda fora do limite MCMV (máx R$ 13.000)."; status.className = "status err"; return; }
+
   const im = IMOVEIS[key];
-  const financiado = im.avaliacao * 0.80;
-  const entrada = im.venda - financiado;
+  const taxa = cotista ? faixaData.cot : faixaData.nao;
+  const subsidio = getSubsidio(renda, comDep);
+  const valorFinanciado = im.avaliacao * 0.80;
+  const financiadoLiq = Math.max(0, valorFinanciado - subsidio);
+  const entrada = im.venda - valorFinanciado;
   const entradaFGTS = fgts > 0 ? Math.max(0, entrada - fgts) : null;
-
-  let taxa, taxaEf, faixaLabel;
-  if (renda <= 4400) {
-    taxa = 6.0; taxaEf = 6.17; faixaLabel = "Faixa 2";
-  } else {
-    taxa = cotista ? 7.66 : 8.16;
-    taxaEf = cotista ? 7.93 : 8.47;
-    faixaLabel = cotista ? "Faixa 3 · Cotista FGTS" : "Faixa 3 · Não Cotista";
-  }
-
   const prazoAnos = Math.min(80 - idade, 35);
   const prazoMeses = prazoAnos * 12;
-  const parcelaI = calcParcela(financiado, taxa, prazoMeses);
+  const parcelaI = calcParcela(financiadoLiq, taxa, prazoMeses);
   const parcelaF = parcelaI * 0.958;
-  const comprometimento = (parcelaI / renda * 100).toFixed(1);
+  const comp = (parcelaI / renda * 100).toFixed(1);
+  const tipo = cotista ? "Cotista FGTS" : "Não Cotista";
+  const faixaLabel = `Faixa ${faixaData.f} · ${tipo}`;
 
-  // Atualizar UI
-  document.getElementById("faixa-badge-res").textContent = faixaLabel;
+  // UI
+  document.getElementById("r-faixa").textContent = `${faixaLabel} · ${taxa}% a.a.`;
   document.getElementById("r-venda").textContent = fmt(im.venda);
-  document.getElementById("r-financiado").textContent = fmt(financiado);
+  document.getElementById("r-financiado").textContent = fmt(valorFinanciado);
   document.getElementById("r-entrada").textContent = fmt(entrada);
   document.getElementById("r-parcela").textContent = fmt(parcelaI) + "/mês";
   document.getElementById("r-parcela-final").textContent = fmt(parcelaF) + "/mês";
-  document.getElementById("r-taxa").textContent = `${taxa}% a.a. (${taxaEf}% ef.)`;
+  document.getElementById("r-taxa").textContent = `${taxa}% a.a.`;
   document.getElementById("r-prazo").textContent = `${prazoAnos} anos (${prazoMeses} meses)`;
   const compEl = document.getElementById("r-comprometimento");
-  compEl.textContent = `${comprometimento}%`;
-  compEl.className = "res-val " + (parseFloat(comprometimento) > 30 ? "red" : "green");
+  compEl.textContent = `${comp}%`;
+  compEl.className = "res-val " + (parseFloat(comp) > 30 ? "red" : "green");
 
-  const linhaFGTS = document.getElementById("linha-fgts");
+  const lSub = document.getElementById("linha-subsidio");
+  if (subsidio > 0) {
+    lSub.style.display = "flex";
+    document.getElementById("r-subsidio").textContent = fmt(subsidio);
+  } else { lSub.style.display = "none"; }
+
+  const lFgts = document.getElementById("linha-fgts");
   if (entradaFGTS !== null) {
-    linhaFGTS.style.display = "flex";
+    lFgts.style.display = "flex";
     document.getElementById("r-entrada-fgts").textContent = fmt(entradaFGTS);
-  } else {
-    linhaFGTS.style.display = "none";
-  }
+  } else { lFgts.style.display = "none"; }
 
   document.getElementById("resultado").classList.add("visible");
 
-  // Montar texto WhatsApp
-  const primeiroNome = nome.split(" ")[0] || "cliente";
-  let txt = `Olá, ${primeiroNome}! Realizamos uma simulação com base nas suas informações. 😊\n\n`;
+  // Texto WhatsApp
+  const pNome = nome.split(" ")[0] || "cliente";
+  let txt = `Olá, ${pNome}! Realizamos uma simulação com base nas suas informações. 😊\n\n`;
   txt += `🏠 *Imóvel:* ${im.nome}\n`;
   txt += `💵 *Valor do imóvel:* ${fmt(im.venda)}\n\n`;
-  txt += `✅ *Valor financiado pela Caixa:* ${fmt(financiado)}\n`;
+  txt += `✅ *Valor financiado pela Caixa:* ${fmt(valorFinanciado)}\n`;
+  if (subsidio > 0) txt += `🎁 *Subsídio do governo:* ${fmt(subsidio)}\n`;
   txt += `🔑 *Entrada necessária:* ${fmt(entrada)}`;
   if (entradaFGTS !== null && entradaFGTS < entrada) txt += ` (ou *${fmt(entradaFGTS)}* usando o FGTS na entrada)`;
   txt += `\n\n`;
   txt += `💰 *Parcela inicial:* ${fmt(parcelaI)}/mês\n`;
-  txt += `📉 *Parcela final estimada:* ${fmt(parcelaF)}/mês _(redução gradual ao longo do contrato)_\n`;
-  txt += `📌 *Taxa de juros:* ${taxa}% ao ano (${taxaEf}% efetivos a.a.) — ${faixaLabel}\n`;
+  txt += `📉 *Parcela final estimada:* ${fmt(parcelaF)}/mês\n`;
+  txt += `📌 *Taxa de juros:* ${taxa}% ao ano — ${faixaLabel}\n`;
   txt += `⏳ *Prazo:* ${prazoAnos} anos (${prazoMeses} meses)\n\n`;
   txt += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
   txt += `📋 A aprovação considera score, compromissos financeiros e documentação apresentada.`;
   if (fgts > 0) txt += ` O FGTS de ${fmt(fgts)} pode ser usado para reduzir a entrada.`;
-  txt += `\n\nEm breve nosso consultor entra em contato para agendar sua visita e dar os próximos passos! 😊🏠`;
+  txt += `\n\nEm breve nosso consultor entra em contato para agendar sua visita! 😊🏠`;
 
   textoSimulacao = txt;
-  document.getElementById("wpp-preview").textContent = txt;
-  document.getElementById("wpp-wrap").style.display = "block";
-  document.getElementById("btn-send").style.display = "block";
+  document.getElementById("wpp-box").textContent = txt;
+  document.getElementById("wpp-wrap").classList.add("visible");
+  document.getElementById("btn-send").classList.add("visible");
 }
 
 async function enviar() {
   const phone = document.getElementById("phone").value.replace(/\D/g, "");
-  if (!phone || phone.length < 10) {
-    document.getElementById("status").textContent = "⚠️ Informe o WhatsApp do cliente.";
-    document.getElementById("status").className = "status err"; return;
-  }
-  if (!textoSimulacao) {
-    document.getElementById("status").textContent = "⚠️ Calcule primeiro.";
-    document.getElementById("status").className = "status err"; return;
-  }
-
+  if (!phone || phone.length < 10) { document.getElementById("status").textContent = "⚠️ Informe o WhatsApp."; document.getElementById("status").className = "status err"; return; }
+  if (!textoSimulacao) { document.getElementById("status").textContent = "⚠️ Calcule primeiro."; document.getElementById("status").className = "status err"; return; }
   const btn = document.getElementById("btn-send");
   btn.textContent = "Enviando..."; btn.disabled = true;
-
   try {
     const r = await fetch(`${BOT}/simular/${phone}`, {
       method: "POST",
@@ -476,12 +413,12 @@ async function enviar() {
       body: JSON.stringify({ texto_customizado: textoSimulacao, nome_cliente: document.getElementById("nome").value.trim() })
     });
     if (r.ok) {
-      document.getElementById("status").textContent = "✅ Simulação enviada com sucesso!";
+      document.getElementById("status").textContent = "✅ Enviado com sucesso!";
       document.getElementById("status").className = "status ok";
       btn.textContent = "✅ Enviado!";
     } else throw new Error();
   } catch {
-    document.getElementById("status").textContent = "❌ Erro ao enviar. Tente novamente.";
+    document.getElementById("status").textContent = "❌ Erro ao enviar.";
     document.getElementById("status").className = "status err";
     btn.textContent = "📲 Enviar para o WhatsApp do cliente";
     btn.disabled = false;

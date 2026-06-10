@@ -6,68 +6,46 @@
 <title>Simulador — Ricardo Inácio Imóveis</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #0f1923;
     color: #e8e0d4;
     min-height: 100vh;
-    padding: 20px;
+    padding: 16px;
   }
-
-  .header {
-    text-align: center;
-    padding: 28px 0 24px;
-  }
-  .header h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #c9a84c;
-    letter-spacing: 0.5px;
-  }
-  .header p {
-    font-size: 13px;
-    color: #8a8070;
-    margin-top: 4px;
-  }
+  .header { text-align: center; padding: 24px 0 20px; }
+  .header h1 { font-size: 20px; font-weight: 800; color: #c9a84c; }
+  .header p { font-size: 12px; color: #8a8070; margin-top: 4px; }
 
   .card {
     background: #1a2530;
     border-radius: 16px;
-    padding: 24px;
+    padding: 20px;
     max-width: 480px;
     margin: 0 auto;
     border: 1px solid #2a3540;
   }
 
+  .section { margin-bottom: 22px; }
   .section-title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.8px;
     text-transform: uppercase;
     color: #c9a84c;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid #2a3540;
   }
 
-  .section { margin-bottom: 24px; }
-
-  .field { margin-bottom: 14px; }
-  label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: #8a8070;
-    margin-bottom: 6px;
-    letter-spacing: 0.3px;
-  }
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 11px; font-weight: 700; color: #8a8070; margin-bottom: 5px; letter-spacing: 0.3px; }
   input, select {
     width: 100%;
     background: #0f1923;
     border: 1px solid #2a3540;
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 11px 13px;
     color: #e8e0d4;
     font-size: 15px;
     outline: none;
@@ -77,212 +55,257 @@
   input:focus, select:focus { border-color: #c9a84c; }
   input::placeholder { color: #3a4550; }
   select option { background: #1a2530; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  /* Toggle cotista */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0f1923;
+    border: 1px solid #2a3540;
+    border-radius: 10px;
+    padding: 11px 13px;
+  }
+  .toggle-label { font-size: 14px; color: #e8e0d4; }
+  .toggle-sub { font-size: 11px; color: #8a8070; }
+  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0;
+    background: #2a3540; border-radius: 24px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .slider:before {
+    content: ""; position: absolute;
+    width: 18px; height: 18px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  input:checked + .slider { background: #c9a84c; }
+  input:checked + .slider:before { transform: translateX(20px); }
 
-  .preview {
+  /* Resultado */
+  .resultado {
     background: #0f1923;
     border-radius: 12px;
     padding: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     border: 1px solid #2a3540;
     display: none;
   }
-  .preview.visible { display: block; }
-  .preview-title {
+  .resultado.visible { display: block; }
+  .res-title { font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: #c9a84c; margin-bottom: 12px; }
+  .res-line { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #1a2530; font-size: 13px; }
+  .res-line:last-child { border-bottom: none; }
+  .res-lbl { color: #8a8070; }
+  .res-val { font-weight: 700; color: #e8e0d4; text-align: right; }
+  .res-val.gold { color: #c9a84c; font-size: 17px; }
+  .res-val.green { color: #4caf8a; }
+  .res-val.red { color: #e05a5a; }
+
+  .faixa-badge {
+    display: inline-block;
+    background: #c9a84c22;
+    color: #c9a84c;
+    border: 1px solid #c9a84c44;
+    border-radius: 6px;
+    padding: 2px 8px;
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: #c9a84c;
     margin-bottom: 12px;
   }
-  .preview-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #1a2530;
-    font-size: 14px;
-  }
-  .preview-line:last-child { border-bottom: none; }
-  .preview-label { color: #8a8070; }
-  .preview-value { font-weight: 700; color: #e8e0d4; }
-  .preview-value.destaque { color: #c9a84c; font-size: 16px; }
-  .preview-value.entrada { color: #4caf8a; }
 
-  .btn-simular {
-    width: 100%;
-    background: #c9a84c;
-    color: #0f1923;
-    border: none;
-    border-radius: 12px;
-    padding: 16px;
-    font-size: 16px;
-    font-weight: 800;
-    cursor: pointer;
-    letter-spacing: 0.3px;
-    transition: background 0.2s, transform 0.1s;
-    margin-bottom: 12px;
-  }
-  .btn-simular:active { transform: scale(0.98); }
-  .btn-simular:hover { background: #d4b55e; }
-
-  .btn-enviar {
-    width: 100%;
-    background: #25D366;
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    padding: 16px;
-    font-size: 16px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    display: none;
-  }
-  .btn-enviar.visible { display: block; }
-  .btn-enviar:active { transform: scale(0.98); }
-  .btn-enviar:hover { background: #20bc5a; }
-
-  .status {
-    text-align: center;
-    font-size: 13px;
-    margin-top: 12px;
-    min-height: 20px;
-    color: #8a8070;
-  }
-  .status.ok { color: #4caf8a; }
-  .status.erro { color: #e05a5a; }
-
-  .whatsapp-preview {
-    background: #0f1923;
+  /* Preview WhatsApp */
+  .wpp-preview {
+    background: #0a1a0f;
+    border: 1px solid #1a3a1f;
     border-radius: 12px;
     padding: 14px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.65;
     white-space: pre-wrap;
     word-break: break-word;
-    color: #c8c0b4;
-    border: 1px solid #2a3540;
+    color: #c8e0c8;
     margin-bottom: 14px;
     display: none;
-    max-height: 300px;
+    max-height: 280px;
     overflow-y: auto;
   }
-  .whatsapp-preview.visible { display: block; }
+  .wpp-preview.visible { display: block; }
+  .wpp-header { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #4caf8a; margin-bottom: 8px; }
+
+  /* Botões */
+  .btn {
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 10px;
+    letter-spacing: 0.2px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-calc { background: #c9a84c; color: #0f1923; }
+  .btn-calc:hover { background: #d4b55e; }
+  .btn-send { background: #25D366; color: #fff; display: none; }
+  .btn-send.visible { display: block; }
+  .btn-send:hover { background: #20bc5a; }
+  .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .status { text-align: center; font-size: 12px; min-height: 18px; color: #8a8070; margin-top: 4px; }
+  .status.ok { color: #4caf8a; }
+  .status.err { color: #e05a5a; }
+
+  .aviso {
+    background: #1a1a0a;
+    border: 1px solid #3a3010;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: #8a7030;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .aviso.visible { display: block; }
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>📊 Simulador MCMV</h1>
-  <p>Ricardo Inácio Imóveis</p>
+  <p>Ricardo Inácio Imóveis · Uso interno</p>
 </div>
 
 <div class="card">
 
-  <!-- DADOS DO CLIENTE -->
+  <!-- CLIENTE -->
   <div class="section">
     <div class="section-title">Cliente</div>
-    <div class="field">
-      <label>Nome do cliente</label>
-      <input type="text" id="nome" placeholder="Ex: Alessandra Bastos">
-    </div>
-    <div class="field">
-      <label>WhatsApp (com DDD, sem +55)</label>
-      <input type="tel" id="phone" placeholder="62999999999">
-    </div>
-  </div>
-
-  <!-- DADOS FINANCEIROS -->
-  <div class="section">
-    <div class="section-title">Perfil financeiro</div>
     <div class="row">
       <div class="field">
-        <label>Renda mensal (R$)</label>
-        <input type="number" id="renda" placeholder="7000" min="0">
+        <label>Nome completo</label>
+        <input type="text" id="nome" placeholder="Ex: Alessandra Bastos">
       </div>
       <div class="field">
-        <label>Idade</label>
-        <input type="number" id="idade" placeholder="35" min="18" max="79">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>Tipo de renda</label>
-        <select id="tipo">
-          <option value="clt">Carteira Assinada (CLT)</option>
-          <option value="empresa">Empresa (Sócio)</option>
-          <option value="autonomo" selected>MEI / Autônomo</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>FGTS disponível (R$)</label>
-        <input type="number" id="fgts" placeholder="0" min="0">
+        <label>WhatsApp (DDD + número)</label>
+        <input type="tel" id="phone" placeholder="62999999999">
       </div>
     </div>
   </div>
 
   <!-- IMÓVEL -->
   <div class="section">
-    <div class="section-title">Imóvel de interesse</div>
+    <div class="section-title">Imóvel</div>
     <div class="field">
       <label>Selecione o imóvel</label>
-      <select id="imovel">
-        <option value="">— Sem imóvel específico —</option>
-        <option value="della penna">Della Penna — R$ 56k entrada</option>
-        <option value="nacoes">Setor das Nações — R$ 64k entrada</option>
-        <option value="pilar">Pilar dos Sonhos / Noroeste — R$ 15k entrada</option>
-        <option value="carolina">Carolina Parque — R$ 15k entrada</option>
-        <option value="monte pascoal">Monte Pascoal — R$ 50k entrada</option>
-        <option value="santa fe">Santa Fé — R$ 35k entrada</option>
-        <option value="botanico">Botânico — R$ 9k entrada</option>
+      <select id="imovel" onchange="atualizarInfoImovel()">
+        <option value="">— Selecione —</option>
+        <option value="pilar">Pilar dos Sonhos</option>
+        <option value="botanico">Botânico</option>
+        <option value="della">Della Penna</option>
+        <option value="nacoes">Setor das Nações</option>
+        <option value="santafe">Santa Fé</option>
       </select>
     </div>
+    <div class="aviso" id="info-imovel"></div>
+  </div>
+
+  <!-- PERFIL FINANCEIRO -->
+  <div class="section">
+    <div class="section-title">Perfil financeiro</div>
+    <div class="row">
+      <div class="field">
+        <label>Renda familiar (R$)</label>
+        <input type="number" id="renda" placeholder="5000" min="0" oninput="atualizarFaixa()">
+      </div>
+      <div class="field">
+        <label>Idade do comprador</label>
+        <input type="number" id="idade" placeholder="35" min="18" max="79">
+      </div>
+    </div>
+
     <div class="field">
-      <label>Ou informe o valor do imóvel (R$) — opcional</label>
-      <input type="number" id="valor_imovel" placeholder="Ex: 280000" min="0">
+      <label>Faixa MCMV</label>
+      <div id="faixa-info" style="font-size:13px; color:#8a8070; padding: 8px 0;">← informe a renda</div>
+    </div>
+
+    <div class="field">
+      <label>Cotista FGTS? (tem FGTS para usar na entrada)</label>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Usar FGTS na entrada</div>
+          <div class="toggle-sub" id="taxa-label">Taxa: —</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="cotista" onchange="atualizarFaixa()">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" id="campo-fgts" style="display:none">
+      <label>Valor do FGTS disponível (R$)</label>
+      <input type="number" id="fgts" placeholder="0" min="0">
     </div>
   </div>
 
-  <!-- BOTÃO SIMULAR -->
-  <button class="btn-simular" onclick="calcular()">⚡ Calcular simulação</button>
+  <!-- BOTÃO CALCULAR -->
+  <button class="btn btn-calc" onclick="calcular()">⚡ Calcular simulação</button>
 
-  <!-- PREVIEW -->
-  <div class="preview" id="preview">
-    <div class="preview-title">Resultado</div>
-    <div class="preview-line">
-      <span class="preview-label">Financiamento máximo</span>
-      <span class="preview-value destaque" id="r-max"></span>
+  <!-- RESULTADO -->
+  <div class="resultado" id="resultado">
+    <div class="res-title">Resultado da simulação</div>
+    <div id="faixa-badge-res" class="faixa-badge"></div>
+    <div class="res-line">
+      <span class="res-lbl">Valor do imóvel</span>
+      <span class="res-val" id="r-venda"></span>
     </div>
-    <div class="preview-line">
-      <span class="preview-label">Parcela inicial</span>
-      <span class="preview-value" id="r-parcela"></span>
+    <div class="res-line">
+      <span class="res-lbl">Valor financiado (Caixa)</span>
+      <span class="res-val gold" id="r-financiado"></span>
     </div>
-    <div class="preview-line">
-      <span class="preview-label">Parcela final est.</span>
-      <span class="preview-value" id="r-parcela-final"></span>
+    <div class="res-line">
+      <span class="res-lbl">Entrada necessária</span>
+      <span class="res-val green" id="r-entrada"></span>
     </div>
-    <div class="preview-line">
-      <span class="preview-label">Taxa de juros</span>
-      <span class="preview-value" id="r-taxa"></span>
+    <div class="res-line" id="linha-fgts" style="display:none">
+      <span class="res-lbl">Entrada c/ FGTS</span>
+      <span class="res-val green" id="r-entrada-fgts"></span>
     </div>
-    <div class="preview-line">
-      <span class="preview-label">Prazo</span>
-      <span class="preview-value" id="r-prazo"></span>
+    <div class="res-line">
+      <span class="res-lbl">Parcela inicial</span>
+      <span class="res-val" id="r-parcela"></span>
     </div>
-    <div class="preview-line" id="linha-entrada" style="display:none">
-      <span class="preview-label">Entrada necessária</span>
-      <span class="preview-value entrada" id="r-entrada"></span>
+    <div class="res-line">
+      <span class="res-lbl">Parcela final est.</span>
+      <span class="res-val" id="r-parcela-final"></span>
+    </div>
+    <div class="res-line">
+      <span class="res-lbl">Taxa de juros</span>
+      <span class="res-val" id="r-taxa"></span>
+    </div>
+    <div class="res-line">
+      <span class="res-lbl">Prazo</span>
+      <span class="res-val" id="r-prazo"></span>
+    </div>
+    <div class="res-line">
+      <span class="res-lbl">Comprometimento de renda</span>
+      <span class="res-val" id="r-comprometimento"></span>
     </div>
   </div>
 
   <!-- PREVIEW WHATSAPP -->
-  <div class="whatsapp-preview" id="wpp-preview"></div>
+  <div id="wpp-wrap" style="display:none">
+    <div class="wpp-header">📱 Prévia — mensagem para o cliente</div>
+    <div class="wpp-preview visible" id="wpp-preview"></div>
+  </div>
 
-  <!-- BOTÃO ENVIAR -->
-  <button class="btn-enviar" id="btn-enviar" onclick="enviar()">
+  <!-- ENVIAR -->
+  <button class="btn btn-send visible" id="btn-send" onclick="enviar()" style="display:none">
     📲 Enviar para o WhatsApp do cliente
   </button>
 
@@ -291,166 +314,175 @@
 </div>
 
 <script>
-const BOT_URL = "https://bot-imobiliario-openai-production.up.railway.app";
+const BOT = "https://bot-imobiliario-openai-production.up.railway.app";
 
-// Valores dos imóveis (entrada / 20% = valor total estimado)
-const imoveis = {
-  "della penna":   56000 / 0.20,
-  "nacoes":        64000 / 0.20,
-  "pilar":         15000 / 0.20,
-  "carolina":      15000 / 0.20,
-  "monte pascoal": 50000 / 0.20,
-  "santa fe":      35000 / 0.20,
-  "botanico":       9000 / 0.20,
+const IMOVEIS = {
+  pilar:    { nome: "Pilar dos Sonhos", venda: 320000, avaliacao: 380000 },
+  botanico: { nome: "Botânico",         venda: 283000, avaliacao: 343000 },
+  della:    { nome: "Della Penna",      venda: 280000, avaliacao: 280000 },
+  nacoes:   { nome: "Setor das Nações", venda: 320000, avaliacao: 320000 },
+  santafe:  { nome: "Santa Fé",         venda: 300000, avaliacao: 343291 },
 };
 
 function fmt(v) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
-
-function calcParcela(pv, taxaAnual, n) {
-  const i = taxaAnual / 12 / 100;
-  return pv * (i * Math.pow(1+i, n)) / (Math.pow(1+i, n) - 1);
+function calcParcela(pv, taxa, n) {
+  const i = taxa / 12 / 100;
+  return pv * (i * Math.pow(1+i,n)) / (Math.pow(1+i,n) - 1);
 }
 
-function calcMaxFinanciamento(renda, taxaAnual, n) {
-  const i = taxaAnual / 12 / 100;
-  const parcelaMax = renda * 0.30;
-  return parcelaMax * (Math.pow(1+i, n) - 1) / (i * Math.pow(1+i, n));
+function atualizarInfoImovel() {
+  const key = document.getElementById("imovel").value;
+  const div = document.getElementById("info-imovel");
+  if (!key) { div.classList.remove("visible"); return; }
+  const im = IMOVEIS[key];
+  const fin = im.avaliacao * 0.80;
+  const ent = im.venda - fin;
+  div.innerHTML = `⚠️ <b>Interno:</b> Avaliação Caixa ${fmt(im.avaliacao)} · Financiado ${fmt(fin)} · Entrada mín. ${fmt(ent)}`;
+  div.classList.add("visible");
 }
 
-let simulacaoAtual = null;
+function atualizarFaixa() {
+  const renda = parseFloat(document.getElementById("renda").value) || 0;
+  const cotista = document.getElementById("cotista").checked;
+  const faixaDiv = document.getElementById("faixa-info");
+  const taxaLabel = document.getElementById("taxa-label");
+  const campoFGTS = document.getElementById("campo-fgts");
+
+  campoFGTS.style.display = cotista ? "block" : "none";
+
+  if (!renda) { faixaDiv.textContent = "← informe a renda"; return; }
+
+  if (renda <= 2640) {
+    faixaDiv.innerHTML = `<span style="color:#e05a5a">⚠️ Renda abaixo da Faixa 2 mínima (R$ 2.640)</span>`;
+    taxaLabel.textContent = "Taxa: —";
+  } else if (renda <= 4400) {
+    faixaDiv.innerHTML = `<span style="color:#c9a84c">✅ Faixa 2 — Taxa 6% a.a.</span>`;
+    taxaLabel.textContent = "Taxa: 6% a.a. (Faixa 2)";
+  } else if (renda <= 8000) {
+    const taxa = cotista ? "7,66%" : "8,16%";
+    const tipo = cotista ? "Cotista FGTS" : "Não Cotista";
+    faixaDiv.innerHTML = `<span style="color:#4caf8a">✅ Faixa 3 — ${tipo} · Taxa ${taxa} a.a.</span>`;
+    taxaLabel.textContent = `Taxa: ${taxa} a.a. (${tipo})`;
+  } else {
+    faixaDiv.innerHTML = `<span style="color:#e05a5a">⚠️ Renda acima do limite MCMV (R$ 8.000)</span>`;
+    taxaLabel.textContent = "Taxa: —";
+  }
+}
+
+let textoSimulacao = null;
 
 function calcular() {
+  const key = document.getElementById("imovel").value;
   const renda = parseFloat(document.getElementById("renda").value);
   const idade = parseInt(document.getElementById("idade").value) || 35;
-  const tipo = document.getElementById("tipo").value;
+  const cotista = document.getElementById("cotista").checked;
   const fgts = parseFloat(document.getElementById("fgts").value) || 0;
-  const imovelKey = document.getElementById("imovel").value;
-  const valorImovelManual = parseFloat(document.getElementById("valor_imovel").value) || 0;
   const nome = document.getElementById("nome").value.trim();
+  const status = document.getElementById("status");
 
-  if (!renda || renda <= 0) {
-    document.getElementById("status").textContent = "⚠️ Informe a renda do cliente.";
-    document.getElementById("status").className = "status erro";
-    return;
+  if (!key) { status.textContent = "⚠️ Selecione o imóvel."; status.className = "status err"; return; }
+  if (!renda || renda < 2640) { status.textContent = "⚠️ Renda mínima R$ 2.640."; status.className = "status err"; return; }
+  if (renda > 8000) { status.textContent = "⚠️ Renda acima do limite MCMV."; status.className = "status err"; return; }
+
+  status.textContent = ""; status.className = "status";
+
+  const im = IMOVEIS[key];
+  const financiado = im.avaliacao * 0.80;
+  const entrada = im.venda - financiado;
+  const entradaFGTS = fgts > 0 ? Math.max(0, entrada - fgts) : null;
+
+  let taxa, taxaEf, faixaLabel;
+  if (renda <= 4400) {
+    taxa = 6.0; taxaEf = 6.17; faixaLabel = "Faixa 2";
+  } else {
+    taxa = cotista ? 7.66 : 8.16;
+    taxaEf = cotista ? 7.93 : 8.47;
+    faixaLabel = cotista ? "Faixa 3 · Cotista FGTS" : "Faixa 3 · Não Cotista";
   }
 
-  const taxaAnual = (tipo === "clt" || tipo === "empresa") ? 7.66 : 8.16;
-  const taxaEfetiva = (tipo === "clt" || tipo === "empresa") ? 7.93 : 8.47;
   const prazoAnos = Math.min(80 - idade, 35);
   const prazoMeses = prazoAnos * 12;
+  const parcelaI = calcParcela(financiado, taxa, prazoMeses);
+  const parcelaF = parcelaI * 0.958;
+  const comprometimento = (parcelaI / renda * 100).toFixed(1);
 
-  const valorMaxFinanciado = calcMaxFinanciamento(renda, taxaAnual, prazoMeses);
-  const valorFinanciadoLiq = Math.max(0, valorMaxFinanciado - fgts);
-  const parcelaInicial = calcParcela(valorFinanciadoLiq, taxaAnual, prazoMeses);
-  const parcelaFinal = parcelaInicial * 0.958;
-
-  // Valor do imóvel
-  let imovelValor = valorImovelManual > 0 ? valorImovelManual : (imovelKey ? imoveis[imovelKey] : null);
-  let entrada = imovelValor ? Math.max(0, imovelValor - valorMaxFinanciado) : null;
-  let entradaComFGTS = (imovelValor && fgts > 0) ? Math.max(0, imovelValor - valorMaxFinanciado - fgts) : null;
-
-  // Atualizar preview
-  document.getElementById("r-max").textContent = fmt(valorMaxFinanciado);
-  document.getElementById("r-parcela").textContent = fmt(parcelaInicial) + "/mês";
-  document.getElementById("r-parcela-final").textContent = fmt(parcelaFinal) + "/mês";
-  document.getElementById("r-taxa").textContent = `${taxaAnual}% a.a. (${taxaEfetiva}% ef.)`;
+  // Atualizar UI
+  document.getElementById("faixa-badge-res").textContent = faixaLabel;
+  document.getElementById("r-venda").textContent = fmt(im.venda);
+  document.getElementById("r-financiado").textContent = fmt(financiado);
+  document.getElementById("r-entrada").textContent = fmt(entrada);
+  document.getElementById("r-parcela").textContent = fmt(parcelaI) + "/mês";
+  document.getElementById("r-parcela-final").textContent = fmt(parcelaF) + "/mês";
+  document.getElementById("r-taxa").textContent = `${taxa}% a.a. (${taxaEf}% ef.)`;
   document.getElementById("r-prazo").textContent = `${prazoAnos} anos (${prazoMeses} meses)`;
+  const compEl = document.getElementById("r-comprometimento");
+  compEl.textContent = `${comprometimento}%`;
+  compEl.className = "res-val " + (parseFloat(comprometimento) > 30 ? "red" : "green");
 
-  const linhaEntrada = document.getElementById("linha-entrada");
-  if (entrada !== null) {
-    linhaEntrada.style.display = "flex";
-    let entradaTexto = fmt(entrada);
-    if (entradaComFGTS !== null && entradaComFGTS < entrada) entradaTexto += ` → ${fmt(entradaComFGTS)} c/ FGTS`;
-    document.getElementById("r-entrada").textContent = entradaTexto;
+  const linhaFGTS = document.getElementById("linha-fgts");
+  if (entradaFGTS !== null) {
+    linhaFGTS.style.display = "flex";
+    document.getElementById("r-entrada-fgts").textContent = fmt(entradaFGTS);
   } else {
-    linhaEntrada.style.display = "none";
+    linhaFGTS.style.display = "none";
   }
 
-  document.getElementById("preview").classList.add("visible");
+  document.getElementById("resultado").classList.add("visible");
 
   // Montar texto WhatsApp
   const primeiroNome = nome.split(" ")[0] || "cliente";
-  let texto = `Olá, ${primeiroNome}! Realizamos uma simulação com base nas informações apresentadas. 😊\n\n`;
-  texto += `✅ *Valor máximo estimado para financiamento:* ${fmt(valorMaxFinanciado)}\n`;
-  if (fgts > 0) {
-    texto += `🏦 *FGTS aplicado:* ${fmt(fgts)} (abatido do financiamento)\n`;
-    texto += `✅ *Valor financiado após FGTS:* ${fmt(valorFinanciadoLiq)}\n`;
-  }
-  texto += `💰 *Parcela aproximada:* ${fmt(parcelaInicial)} por mês, com redução gradual ao longo do contrato, podendo chegar a aproximadamente ${fmt(parcelaFinal)} nas últimas parcelas.\n`;
-  texto += `📌 *Taxa de juros:* ${taxaAnual}% ao ano (${taxaEfetiva}% efetivos ao ano).\n`;
-  texto += `⏳ *Prazo:* ${prazoAnos} anos (${prazoMeses} meses).\n\n`;
-  texto += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
+  let txt = `Olá, ${primeiroNome}! Realizamos uma simulação com base nas suas informações. 😊\n\n`;
+  txt += `🏠 *Imóvel:* ${im.nome}\n`;
+  txt += `💵 *Valor do imóvel:* ${fmt(im.venda)}\n\n`;
+  txt += `✅ *Valor financiado pela Caixa:* ${fmt(financiado)}\n`;
+  txt += `🔑 *Entrada necessária:* ${fmt(entrada)}`;
+  if (entradaFGTS !== null && entradaFGTS < entrada) txt += ` (ou *${fmt(entradaFGTS)}* usando o FGTS na entrada)`;
+  txt += `\n\n`;
+  txt += `💰 *Parcela inicial:* ${fmt(parcelaI)}/mês\n`;
+  txt += `📉 *Parcela final estimada:* ${fmt(parcelaF)}/mês _(redução gradual ao longo do contrato)_\n`;
+  txt += `📌 *Taxa de juros:* ${taxa}% ao ano (${taxaEf}% efetivos a.a.) — ${faixaLabel}\n`;
+  txt += `⏳ *Prazo:* ${prazoAnos} anos (${prazoMeses} meses)\n\n`;
+  txt += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
+  txt += `📋 A aprovação considera score, compromissos financeiros e documentação apresentada.`;
+  if (fgts > 0) txt += ` O FGTS de ${fmt(fgts)} pode ser usado para reduzir a entrada.`;
+  txt += `\n\nEm breve nosso consultor entra em contato para agendar sua visita e dar os próximos passos! 😊🏠`;
 
-  if (imovelValor) {
-    const nomeImovel = imovelKey ? imovelKey.toUpperCase() : "imóvel selecionado";
-    texto += `🏡 *Para o ${nomeImovel}:*\n`;
-    if (entrada <= 0) {
-      texto += `✅ O valor financiado cobre o imóvel! Entrada pode ser mínima.\n`;
-    } else {
-      texto += `💵 *Entrada necessária:* ${fmt(entrada)}`;
-      if (entradaComFGTS !== null && entradaComFGTS < entrada) texto += ` (ou ${fmt(entradaComFGTS)} usando o FGTS na entrada)`;
-      texto += `\n`;
-    }
-    texto += `\n`;
-  }
-
-  texto += `📋 A *aprovação final* depende da análise de crédito, score, compromissos financeiros e documentação apresentada.\n\n`;
-  texto += `Em breve nosso consultor entra em contato para dar continuidade e agendar sua visita! 😊🏠`;
-
-  document.getElementById("wpp-preview").textContent = texto;
-  document.getElementById("wpp-preview").classList.add("visible");
-  document.getElementById("btn-enviar").classList.add("visible");
-  document.getElementById("status").textContent = "";
-  document.getElementById("status").className = "status";
-
-  simulacaoAtual = { texto, parcelaInicial, valorMaxFinanciado, entrada };
+  textoSimulacao = txt;
+  document.getElementById("wpp-preview").textContent = txt;
+  document.getElementById("wpp-wrap").style.display = "block";
+  document.getElementById("btn-send").style.display = "block";
 }
 
 async function enviar() {
   const phone = document.getElementById("phone").value.replace(/\D/g, "");
   if (!phone || phone.length < 10) {
     document.getElementById("status").textContent = "⚠️ Informe o WhatsApp do cliente.";
-    document.getElementById("status").className = "status erro";
-    return;
+    document.getElementById("status").className = "status err"; return;
   }
-  if (!simulacaoAtual) {
+  if (!textoSimulacao) {
     document.getElementById("status").textContent = "⚠️ Calcule primeiro.";
-    document.getElementById("status").className = "status erro";
-    return;
+    document.getElementById("status").className = "status err"; return;
   }
 
-  const btn = document.getElementById("btn-enviar");
-  btn.textContent = "Enviando...";
-  btn.disabled = true;
-  document.getElementById("status").textContent = "";
+  const btn = document.getElementById("btn-send");
+  btn.textContent = "Enviando..."; btn.disabled = true;
 
   try {
-    const resp = await fetch(`${BOT_URL}/simular/${phone}`, {
+    const r = await fetch(`${BOT}/simular/${phone}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        renda: parseFloat(document.getElementById("renda").value),
-        tipo: document.getElementById("tipo").value,
-        idade: parseInt(document.getElementById("idade").value) || 35,
-        fgts: parseFloat(document.getElementById("fgts").value) || 0,
-        imovel: document.getElementById("imovel").value,
-        nome_cliente: document.getElementById("nome").value.trim(),
-        texto_customizado: simulacaoAtual.texto
-      })
+      body: JSON.stringify({ texto_customizado: textoSimulacao, nome_cliente: document.getElementById("nome").value.trim() })
     });
-
-    if (resp.ok) {
-      document.getElementById("status").textContent = "✅ Simulação enviada para o WhatsApp do cliente!";
+    if (r.ok) {
+      document.getElementById("status").textContent = "✅ Simulação enviada com sucesso!";
       document.getElementById("status").className = "status ok";
       btn.textContent = "✅ Enviado!";
-    } else {
-      throw new Error("Erro ao enviar");
-    }
-  } catch(e) {
-    document.getElementById("status").textContent = "❌ Erro ao enviar. Verifique a conexão.";
-    document.getElementById("status").className = "status erro";
+    } else throw new Error();
+  } catch {
+    document.getElementById("status").textContent = "❌ Erro ao enviar. Tente novamente.";
+    document.getElementById("status").className = "status err";
     btn.textContent = "📲 Enviar para o WhatsApp do cliente";
     btn.disabled = false;
   }

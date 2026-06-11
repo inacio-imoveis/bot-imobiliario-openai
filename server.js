@@ -263,7 +263,7 @@ app.post("/webhook", async (req, res) => {
           await sendWhatsAppImage(phone, foto);
           await new Promise(r => setTimeout(r, 800));
         }
-        const msg2 = `Gostou? 😍 Veja mais no nosso site:\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠`;
+        const msg2 = `Gostou? 😍 Veja mais no nosso site e siga nosso instagram:\n🔗 https://ricardoinacioimoveis.com.br/#imoveis @ricardoinacioimoveis\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠`;
         await sendWhatsAppMessage(phone, msg2);
         await logMensagem(phone, "bot", msg2);
         session.addMessage("assistant", `[Enviou ${imovelComFotos.fotos.length} fotos do ${imovelComFotos.nome}]`);

@@ -94,6 +94,12 @@ function extractLeadFromHistory(messages) {
       if (val >= 1500 && val <= 20000 && val > renda) renda = val;
     }
   }
+  // Número solto (ex: "8000" ou "8.000") — remove datas antes para não confundir com ano de nascimento
+  const semDatas = history.replace(/\d{1,2}\/\d{1,2}\/\d{2,4}/g, " ").replace(/\b(19\d{2}|20[0-2]\d)\b/g, " ");
+  for (const m of [...semDatas.matchAll(/\b(\d{1,2}\.?\d{3})\b/g)]) {
+    const val = parseFloat(m[1].replace(/\./g, ""));
+    if (val >= 1500 && val <= 20000 && val > renda) renda = val;
+  }
   if (renda > 0) data.renda = renda;
 
   // Tipo de renda
@@ -296,17 +302,21 @@ app.post("/webhook", async (req, res) => {
     await logMensagem(phone, "bot", reply);
 
     // ── SIMULAÇÃO AUTOMÁTICA ─────────────────────────────────────────────────
-    // Detecta se a IA acabou de coletar todos os dados (menciona "anotei tudo" ou similar)
-    const coletouDados = reply.toLowerCase().includes("anotei tudo") ||
+    // Dispara assim que houver dados suficientes (renda + imóvel), independente da frase da IA
+    const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||
                          reply.toLowerCase().includes("aguarde") ||
                          reply.toLowerCase().includes("alguns instantes") ||
                          reply.toLowerCase().includes("nossa equipe vai retornar");
 
-    if (coletouDados) {
+    const leadDataCheck = extractLeadFromHistory(session.getHistory());
+    const coletouDados = frasesColeta || (podeSimular(leadDataCheck) && !session.simulacaoEnviada);
+
+    if (coletouDados && !session.simulacaoEnviada) {
       const leadData = extractLeadFromHistory(session.getHistory());
       salvarLead(phone, leadData);
 
       if (podeSimular(leadData)) {
+        session.simulacaoEnviada = true;
         console.log(`[${phone}] 🧮 Calculando simulação automática...`, leadData);
         await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
 

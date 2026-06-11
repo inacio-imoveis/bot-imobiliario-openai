@@ -23,25 +23,34 @@ const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "bot-ricardo";
 
 // ── DETECTORES ──────────────────────────────────────────────────────────────
 
-function detectPhotoRequest(text) {
+const PHOTO_KEYWORDS = [
+  { key: "botanico",         names: ["botanico"] },
+  { key: "della penna",      names: ["della penna", "della", "penna"] },
+  { key: "nacoes",           names: ["nacoes", "setor das nacoes"] },
+  { key: "pilar dos sonhos", names: ["noroeste", "pilar", "pilar dos sonhos", "sonhos", "atacadao", "portal shopping"] },
+  { key: "carolina",         names: ["carolina", "carolina parque", "joao braz"] },
+  { key: "monte pascoal",    names: ["monte pascoal", "pascoal"] },
+  { key: "santa fe",         names: ["santa fe"] },
+  { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade", "nascer"] },
+];
+
+// Busca imóvel do catálogo por menção no texto (sem exigir a palavra "foto")
+function findImovelByText(text) {
   const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const keywords = [
-    { key: "botanico",         names: ["botanico"] },
-    { key: "della penna",      names: ["della penna", "della", "penna"] },
-    { key: "nacoes",           names: ["nacoes", "setor das nacoes"] },
-    { key: "pilar dos sonhos", names: ["noroeste", "pilar", "pilar dos sonhos", "sonhos", "atacadao", "portal shopping"] },
-    { key: "carolina",         names: ["carolina", "carolina parque", "joao braz"] },
-    { key: "monte pascoal",    names: ["monte pascoal", "pascoal"] },
-    { key: "santa fe",         names: ["santa fe"] },
-  ];
-  const isFotoRequest = lower.includes("foto") || lower.includes("imagem") || lower.includes("pic") || lower.includes("ver") || lower.includes("manda") || lower.includes("mostra");
-  if (!isFotoRequest) return null;
-  for (const k of keywords) {
+  for (const k of PHOTO_KEYWORDS) {
     if (k.names.some(n => lower.includes(n))) {
       return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(k.key));
     }
   }
-  // Pediu foto mas não disse qual imóvel
+  return null;
+}
+
+function detectPhotoRequest(text) {
+  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const isFotoRequest = lower.includes("foto") || lower.includes("imagem") || lower.includes("pic") || lower.includes("ver") || lower.includes("manda") || lower.includes("mostra");
+  if (!isFotoRequest) return null;
+  const found = findImovelByText(text);
+  if (found) return found;
   if (lower.includes("foto") || lower.includes("imagem")) return "ASK";
   return null;
 }
@@ -95,6 +104,12 @@ function extractLeadFromHistory(messages) {
       if (m[0].toLowerCase().includes("mil") && val < 500) val *= 1000;
       if (val >= 1500 && val <= 20000 && val > renda) renda = val;
     }
+  }
+  // Número solto (ex: "8000") — remove datas para não confundir com ano de nascimento
+  const semDatas = history.replace(/\d{1,2}\/\d{1,2}\/\d{2,4}/g, " ").replace(/\b(19\d{2}|20[0-2]\d)\b/g, " ");
+  for (const m of [...semDatas.matchAll(/\b(\d{1,2}\.?\d{3})\b/g)]) {
+    const val = parseFloat(m[1].replace(/\./g, ""));
+    if (val >= 1500 && val <= 20000 && val > renda) renda = val;
   }
   if (renda > 0) data.renda = renda;
 
@@ -270,7 +285,13 @@ async function handleMessage(phone, userText) {
     }
 
     // Fotos
-    let imovelComFotos = detectPhotoRequest(userText);
+    let imovelComFotos = null;
+    if (session.awaitingPhotoChoice) {
+      session.awaitingPhotoChoice = false;
+      imovelComFotos = findImovelByText(userText);
+      sessionManager.save(phone, session);
+    }
+    if (!imovelComFotos) imovelComFotos = detectPhotoRequest(userText);
     if (imovelComFotos === "ASK") {
       // Tentar usar o imóvel já mencionado na conversa
       const leadData = extractLeadFromHistory(session.getHistory());
@@ -283,6 +304,7 @@ async function handleMessage(phone, userText) {
         await sendWhatsAppMessage(phone, msgAsk);
         await logMensagem(phone, "bot", msgAsk);
         session.addMessage("assistant", msgAsk);
+        session.awaitingPhotoChoice = true;
         sessionManager.save(phone, session);
         return;
       }
@@ -330,16 +352,20 @@ async function handleMessage(phone, userText) {
 
     // ── SIMULAÇÃO AUTOMÁTICA ─────────────────────────────────────────────────
     // Detecta se a IA acabou de coletar todos os dados (menciona "anotei tudo" ou similar)
-    const coletouDados = reply.toLowerCase().includes("anotei tudo") ||
+    const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||
                          reply.toLowerCase().includes("aguarde") ||
                          reply.toLowerCase().includes("alguns instantes") ||
                          reply.toLowerCase().includes("nossa equipe vai retornar");
 
-    if (coletouDados) {
+    const leadDataCheck = extractLeadFromHistory(session.getHistory());
+    const coletouDados = frasesColeta || (podeSimular(leadDataCheck) && !session.simulacaoEnviada);
+
+    if (coletouDados && !session.simulacaoEnviada) {
       const leadData = extractLeadFromHistory(session.getHistory());
       salvarLead(phone, leadData);
 
       if (podeSimular(leadData)) {
+        session.simulacaoEnviada = true;
         console.log(`[${phone}] 🧮 Calculando simulação automática...`, leadData);
         await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
 

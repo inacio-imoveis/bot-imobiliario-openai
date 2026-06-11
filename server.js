@@ -62,7 +62,8 @@ function findCatalogByImovelKey(imovelKey) {
 
 // Extrai dados do lead do histórico da sessão
 function extractLeadFromHistory(messages) {
-  const history = messages.map(m => m.content).join("\n");
+  // Considera APENAS mensagens do cliente — nunca as respostas da Ana
+  const history = messages.filter(m => m.role === "user").map(m => m.content).join("\n");
   const lower = history.toLowerCase();
   const data = {};
 
@@ -93,12 +94,6 @@ function extractLeadFromHistory(messages) {
       if (m[0].toLowerCase().includes("mil") && val < 500) val *= 1000;
       if (val >= 1500 && val <= 20000 && val > renda) renda = val;
     }
-  }
-  // Número solto (ex: "8000" ou "8.000") — remove datas antes para não confundir com ano de nascimento
-  const semDatas = history.replace(/\d{1,2}\/\d{1,2}\/\d{2,4}/g, " ").replace(/\b(19\d{2}|20[0-2]\d)\b/g, " ");
-  for (const m of [...semDatas.matchAll(/\b(\d{1,2}\.?\d{3})\b/g)]) {
-    const val = parseFloat(m[1].replace(/\./g, ""));
-    if (val >= 1500 && val <= 20000 && val > renda) renda = val;
   }
   if (renda > 0) data.renda = renda;
 
@@ -302,21 +297,17 @@ app.post("/webhook", async (req, res) => {
     await logMensagem(phone, "bot", reply);
 
     // ── SIMULAÇÃO AUTOMÁTICA ─────────────────────────────────────────────────
-    // Dispara assim que houver dados suficientes (renda + imóvel), independente da frase da IA
-    const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||
+    // Detecta se a IA acabou de coletar todos os dados (menciona "anotei tudo" ou similar)
+    const coletouDados = reply.toLowerCase().includes("anotei tudo") ||
                          reply.toLowerCase().includes("aguarde") ||
                          reply.toLowerCase().includes("alguns instantes") ||
                          reply.toLowerCase().includes("nossa equipe vai retornar");
 
-    const leadDataCheck = extractLeadFromHistory(session.getHistory());
-    const coletouDados = frasesColeta || (podeSimular(leadDataCheck) && !session.simulacaoEnviada);
-
-    if (coletouDados && !session.simulacaoEnviada) {
+    if (coletouDados) {
       const leadData = extractLeadFromHistory(session.getHistory());
       salvarLead(phone, leadData);
 
       if (podeSimular(leadData)) {
-        session.simulacaoEnviada = true;
         console.log(`[${phone}] 🧮 Calculando simulação automática...`, leadData);
         await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
 
@@ -341,12 +332,14 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
-      // Handoff automático após coleta
-      session.setWaitingForHuman(true);
-      sessionManager.save(phone, session);
+      // Handoff automático SÓ quando a IA sinalizou coleta completa (frases)
+      // Simulação automática sozinha NÃO pausa o bot — cliente pode continuar conversando
+      if (frasesColeta) {
+        session.setWaitingForHuman(true);
+        sessionManager.save(phone, session);
+      }
       const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
       if (TEAM_NUMBER) {
-        const leadData2 = extractLeadFromHistory(session.getHistory());
         const alertMsg = formatHandoffAlert(phone, session, "dados_coletados");
         await sendWhatsAppMessage(TEAM_NUMBER, alertMsg);
       }

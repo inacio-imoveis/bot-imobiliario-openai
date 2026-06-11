@@ -146,8 +146,8 @@ export function formatarSimulacao(s, nomeCliente = "") {
   }
   txt += `\n\n`;
   txt += `💰 *Parcela inicial:* ${fmt(s.parcelaInicial)}/mês\n`;
-  txt += `📉 *Parcela final estimada:* ${fmt(s.parcelaFinal)}/mês _(redução gradual ao longo do contrato)_\n`;
-  txt += `📌 *Taxa de juros:* ${s.taxa}% ao ano — ${s.faixaLabel}\n`;
+  txt += `📉 *Parcela final estimada:* ${fmt(s.parcelaFinal)}/mês\n`;
+  txt += `📌 ${s.faixaLabel}\n`;
   txt += `⏳ *Prazo:* ${s.prazoAnos} anos (${s.prazoMeses} meses)\n\n`;
   txt += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
   txt += `📋 A aprovação considera score, compromissos financeiros e documentação apresentada.`;

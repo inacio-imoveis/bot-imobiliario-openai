@@ -200,7 +200,7 @@ app.post("/webhook", async (req, res) => {
 
     const session = sessionManager.get(phone);
 
-    if (session.waitingForHuman) {
+    if (session.isWaitingForHuman()) {
       console.log(`[${phone}] Em espera de atendente — bot pausado.`);
       return;
     }
@@ -210,7 +210,7 @@ app.post("/webhook", async (req, res) => {
     // Handoff manual
     const handoffRequest = detectHandoffTrigger(userText);
     if (handoffRequest) {
-      session.waitingForHuman = true;
+      session.setWaitingForHuman(true);
       sessionManager.save(phone, session);
       const msg = "Entendido! 🙋 Vou chamar um consultor agora. Aguarde um momento.";
       await sendWhatsAppMessage(phone, msg);
@@ -300,7 +300,7 @@ app.post("/webhook", async (req, res) => {
       }
 
       // Handoff automático após coleta
-      session.waitingForHuman = true;
+      session.setWaitingForHuman(true);
       sessionManager.save(phone, session);
       const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
       if (TEAM_NUMBER) {
@@ -336,12 +336,27 @@ app.post("/simular/:phone", async (req, res) => {
   }
 });
 
-app.post("/handoff/resolve/:phone", (req, res) => {
-  const phone = req.params.phone;
+function resolveHandoff(phone) {
   const session = sessionManager.get(phone);
-  session.waitingForHuman = false;
+  session.setWaitingForHuman(false);
   sessionManager.save(phone, session);
-  res.json({ ok: true, message: `Bot reativado para ${phone}` });
+}
+
+app.post("/handoff/resolve/:phone", (req, res) => {
+  resolveHandoff(req.params.phone);
+  res.json({ ok: true, message: `Bot reativado para ${req.params.phone}` });
+});
+
+// Versão GET — funciona direto pelo navegador
+app.get("/handoff/resolve/:phone", (req, res) => {
+  resolveHandoff(req.params.phone);
+  res.json({ ok: true, message: `Bot reativado para ${req.params.phone}` });
+});
+
+// Reset total de sessões — funciona direto pelo navegador
+app.get("/reset-sessoes", (req, res) => {
+  const n = sessionManager.resetAll();
+  res.json({ ok: true, message: `${n} sessões zeradas. Bot respondendo todos do zero.` });
 });
 
 app.get("/logs", async (req, res) => { res.json(await getResumo()); });

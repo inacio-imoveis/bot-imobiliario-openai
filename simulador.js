@@ -12,6 +12,7 @@ export const imoveisSimulacao = {
   della:    { nome: "Della Penna",      venda: 280000, avaliacao: 280000 },
   nacoes:   { nome: "Setor das Nações", venda: 320000, avaliacao: 320000 },
   santafe:  { nome: "Santa Fé",         venda: 300000, avaliacao: 343291 },
+  nascer:   { nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão", venda: 430000, avaliacao: 465000 },
 };
 
 // Tabela oficial de taxas por faixa de renda

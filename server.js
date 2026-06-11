@@ -41,7 +41,23 @@ function detectPhotoRequest(text) {
       return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(k.key));
     }
   }
+  // Pediu foto mas não disse qual imóvel
+  if (lower.includes("foto") || lower.includes("imagem")) return "ASK";
   return null;
+}
+
+// Mapeia imovelKey do histórico para item do catálogo
+const IMOVELKEY_TO_CATALOG = {
+  pilar: "pilar dos sonhos",
+  botanico: "botanico",
+  della: "della penna",
+  nacoes: "nacoes",
+  santafe: "santa fe",
+};
+function findCatalogByImovelKey(imovelKey) {
+  const term = IMOVELKEY_TO_CATALOG[imovelKey];
+  if (!term) return null;
+  return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term));
 }
 
 // Extrai dados do lead do histórico da sessão
@@ -221,7 +237,23 @@ app.post("/webhook", async (req, res) => {
     }
 
     // Fotos
-    const imovelComFotos = detectPhotoRequest(userText);
+    let imovelComFotos = detectPhotoRequest(userText);
+    if (imovelComFotos === "ASK") {
+      // Tentar usar o imóvel já mencionado na conversa
+      const leadData = extractLeadFromHistory(session.getHistory());
+      const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
+      if (doHistorico) {
+        imovelComFotos = doHistorico;
+      } else {
+        const nomes = catalog.filter(i => i.fotos?.length > 0).map(i => `• ${i.nome}`).join("\n");
+        const msgAsk = `De qual imóvel você quer ver as fotos? 😊\n\n${nomes}`;
+        await sendWhatsAppMessage(phone, msgAsk);
+        await logMensagem(phone, "bot", msgAsk);
+        session.addMessage("assistant", msgAsk);
+        sessionManager.save(phone, session);
+        return;
+      }
+    }
     if (imovelComFotos) {
       if (imovelComFotos.fotos?.length > 0) {
         const msg1 = `📸 Veja as fotos do *${imovelComFotos.nome}*:`;

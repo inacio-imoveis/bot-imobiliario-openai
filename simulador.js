@@ -152,6 +152,6 @@ export function formatarSimulacao(s, nomeCliente = "") {
   txt += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
   txt += `📋 A aprovação considera score, compromissos financeiros e documentação apresentada.`;
   if (s.fgts > 0) txt += ` O FGTS de ${fmt(s.fgts)} pode ser usado para reduzir a entrada.`;
-  txt += `\n\nEm breve nosso consultor entra em contato para agendar sua visita! 😊🏠`;
+  txt += `\n\nGostou dos valores? 😍 Quer agendar uma visita para conhecer a casa pessoalmente? 🏠`;
   return txt;
 }

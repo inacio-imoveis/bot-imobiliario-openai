@@ -211,7 +211,37 @@ app.post("/webhook", async (req, res) => {
     }
 
     userText = userText.trim();
-    console.log(`[${phone}] → ${userText}`);
+
+    // ── AGRUPADOR DE MENSAGENS ──
+    // Junta mensagens enviadas em sequência rápida e processa UMA vez só
+    bufferMessage(phone, userText);
+
+  } catch (err) {
+    console.error("Erro no webhook:", err.message);
+  }
+});
+
+// ── BUFFER / DEBOUNCE ─────────────────────────────────────────────────────────
+const msgBuffers = new Map(); // phone -> { texts: [], timer }
+const DEBOUNCE_MS = 6000;
+
+function bufferMessage(phone, text) {
+  let buf = msgBuffers.get(phone);
+  if (!buf) {
+    buf = { texts: [], timer: null };
+    msgBuffers.set(phone, buf);
+  }
+  buf.texts.push(text);
+  if (buf.timer) clearTimeout(buf.timer);
+  buf.timer = setTimeout(() => {
+    const combined = buf.texts.join("\n");
+    msgBuffers.delete(phone);
+    handleMessage(phone, combined).catch(err => console.error(`[${phone}] Erro:`, err.message));
+  }, DEBOUNCE_MS);
+}
+
+async function handleMessage(phone, userText) {
+  console.log(`[${phone}] → ${userText}`);
 
     await logMensagem(phone, "cliente", userText);
 
@@ -345,10 +375,8 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
-  } catch (err) {
-    console.error("Erro no webhook:", err.message);
-  }
-});
+}
+
 
 // ── ENDPOINTS ─────────────────────────────────────────────────────────────────
 

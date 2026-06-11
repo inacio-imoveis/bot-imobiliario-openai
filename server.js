@@ -33,7 +33,6 @@ function detectPhotoRequest(text) {
     { key: "carolina",         names: ["carolina", "carolina parque", "joao braz"] },
     { key: "monte pascoal",    names: ["monte pascoal", "pascoal"] },
     { key: "santa fe",         names: ["santa fe"] },
-    { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade", "nascer"] },
   ];
   const isFotoRequest = lower.includes("foto") || lower.includes("imagem") || lower.includes("pic") || lower.includes("ver") || lower.includes("manda") || lower.includes("mostra");
   if (!isFotoRequest) return null;
@@ -54,6 +53,7 @@ const IMOVELKEY_TO_CATALOG = {
   della: "della penna",
   nacoes: "nacoes",
   santafe: "santa fe",
+  nascer: "nascer cidadao",
 };
 function findCatalogByImovelKey(imovelKey) {
   const term = IMOVELKEY_TO_CATALOG[imovelKey];
@@ -116,6 +116,7 @@ function extractLeadFromHistory(messages) {
     della: ["della penna", "della", "penna", "eternit"],
     nacoes: ["nacoes", "nações", "setor das nações"],
     santafe: ["santa fe", "santa fé"],
+    nascer: ["nascer cidadao", "nascer cidadão", "maternidade", "nascer"],
   };
   for (const [key, terms] of Object.entries(imovelKeys)) {
     if (terms.some(t => lower.includes(t))) { data.imovelKey = key; break; }

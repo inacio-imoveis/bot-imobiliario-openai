@@ -3,7 +3,7 @@ export function buildSystemPrompt(catalog) {
     const renda = i.renda_minima ? `Renda familiar a partir de R$ ${i.renda_minima.toLocaleString("pt-BR")}` : null;
     const diferenciais = i.diferenciais.map(d => `  ✅ ${d}`).join("\n");
     const fotos = i.fotos && i.fotos.length > 0
-      ? `  📸 Fotos: ${i.fotos.join(" | ")}`
+      ? `  📸 Fotos: disponíveis (o sistema envia automaticamente)`
       : "";
     return `• ${i.nome}\n  📍 ${i.bairro} — ${i.referencia}\n  🔑 Entrada a partir de R$ ${i.entrada.toLocaleString("pt-BR")}${renda ? `\n  👥 ${renda}` : ""}\n${diferenciais}\n  📝 ${i.descricao}${fotos ? `\n${fotos}` : ""}`;
   }).join("\n\n");
@@ -28,9 +28,9 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
      Dá uma olhada e me fala qual chamou mais sua atenção! 😉"
 
 3. QUANDO O CLIENTE PEDIR FOTOS DE UM IMÓVEL:
-   - Verifique no catálogo se o imóvel tem fotos cadastradas
-   - Se tiver, envie cada link em uma mensagem separada
-   - Se não tiver: "Ainda não tenho fotos disponíveis aqui, mas você pode ver mais no nosso site 👇
+   - NUNCA envie links de fotos nem URLs de imagens. O sistema envia as imagens automaticamente.
+   - Se o cliente pediu fotos sem dizer de qual imóvel, pergunte: "De qual imóvel você quer ver as fotos? 😊"
+   - Se o imóvel não tiver fotos cadastradas: "Ainda não tenho fotos disponíveis aqui, mas você pode ver mais no nosso site 👇
      🔗 https://ricardoinacioimoveis.com.br/#imoveis
      Ou posso agendar uma visita pra você conhecer pessoalmente! 🏠😊"
 

@@ -33,6 +33,7 @@ function detectPhotoRequest(text) {
     { key: "carolina",         names: ["carolina", "carolina parque", "joao braz"] },
     { key: "monte pascoal",    names: ["monte pascoal", "pascoal"] },
     { key: "santa fe",         names: ["santa fe"] },
+    { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade", "nascer"] },
   ];
   const isFotoRequest = lower.includes("foto") || lower.includes("imagem") || lower.includes("pic") || lower.includes("ver") || lower.includes("manda") || lower.includes("mostra");
   if (!isFotoRequest) return null;

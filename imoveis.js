@@ -1,5 +1,24 @@
 export const catalog = [
   {
+    nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão",
+    quartos: 3,
+    bairro: "Goiânia/GO, próxima à Maternidade Nascer Cidadão",
+    referencia: "Próxima à Maternidade Nascer Cidadão",
+    entrada: 58000,
+    renda_minima: null,
+    descricao: "Casa 3 quartos nova, moderna, com pé-direito alto, porcelanato, iluminação em LED, banheiros com acabamento em mármore, jardim e garagem coberta. Próxima à Maternidade Nascer Cidadão.",
+    diferenciais: ["3 quartos", "Acabamento de alto padrão", "Pé-direito alto", "Garagem coberta", "Jardim", "Pode usar FGTS na entrada"],
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-5.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-6.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-7.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/nascer-cidadao-1.jpeg"
+    ]
+  },
+  {
     nome: "Casa 2 Quartos — Setor Della Penna",
     quartos: 2,
     bairro: "Setor Della Penna, Região da Eternit, Goiânia/GO",

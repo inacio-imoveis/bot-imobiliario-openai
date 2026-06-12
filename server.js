@@ -56,6 +56,19 @@ function detectPhotoRequest(text) {
   return null;
 }
 
+// Cliente respondeu afirmativamente (ex: "quero", "sim", "pode") sem repetir a palavra "foto"
+function isAffirmativeReply(text) {
+  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return /^(sim|s|quero|isso|pode|manda|claro|com certeza|positivo|uhum|aham|ok|certo|exato|com certeza|gostaria|bora|vamos|por favor|quero sim|sim quero|isso mesmo|pode sim|pode mandar)\b/.test(lower);
+}
+
+// A última mensagem da Ana ofereceu mostrar fotos? (pergunta tipo "quer ver as fotos?")
+function ofereceuFotos(text) {
+  if (!text) return false;
+  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return lower.includes("foto") && (lower.includes("?") || lower.includes("vou te enviar") || lower.includes("vou enviar"));
+}
+
 // Mapeia imovelKey do histórico para item do catálogo
 const IMOVELKEY_TO_CATALOG = {
   pilar: "pilar dos sonhos",
@@ -288,6 +301,18 @@ async function handleMessage(phone, userText) {
       sessionManager.save(phone, session);
     }
     if (!imovelComFotos) imovelComFotos = detectPhotoRequest(userText);
+
+    // Cliente respondeu "quero"/"sim"/etc a uma oferta de fotos da Ana (sem repetir "foto")
+    if (!imovelComFotos && isAffirmativeReply(userText)) {
+      const lastBot = [...session.getHistory()].reverse().find(m => m.role === "assistant");
+      if (lastBot && ofereceuFotos(lastBot.content)) {
+        const doTexto = findImovelByText(lastBot.content);
+        const leadData = extractLeadFromHistory(session.getHistory());
+        const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
+        imovelComFotos = doTexto || doHistorico || "ASK";
+      }
+    }
+
     if (imovelComFotos === "ASK") {
       // Tentar usar o imóvel já mencionado na conversa
       const leadData = extractLeadFromHistory(session.getHistory());

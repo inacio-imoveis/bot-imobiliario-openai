@@ -40,7 +40,17 @@ export const catalog = [
       "https://i.ibb.co/ynqH5yCN/IMG-5697.jpg",
       "https://i.ibb.co/LzkXFk7X/IMG-5883.jpg",
       "https://i.ibb.co/ycsyw09G/IMG-5894.jpg",
-      "https://i.ibb.co/Xrch67Zm/IMG-5897.jpg"
+      "https://i.ibb.co/Xrch67Zm/IMG-5897.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-2.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-3.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-4.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-5.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-6.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-7.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-8.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-9.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-10.jpg",
+      "https://ricardoinacioimoveis.com.br/imagens/della-penna-11.jpg"
     ]
   },
   {

@@ -6,9 +6,10 @@ import { imoveisSimulacao, simular, formatarSimulacao } from "./simulador.js";
 import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
-import { detectHandoffTrigger, formatHandoffAlert } from "./handoff.js";
+import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
+import { extractLeadComIA, podeSimular, camposFaltantes } from "./leadExtractor.js";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -140,19 +141,14 @@ function extractLeadFromHistory(messages) {
   return data;
 }
 
-// Verifica se tem dados suficientes para simular
-function podeSimular(data) {
-  return data.renda > 0 && data.imovelKey && imoveisSimulacao[data.imovelKey];
-}
-
-// Salvar dados no banco
+// Salvar dados no banco a partir do leadData acumulado da sessão
 function salvarLead(phone, data) {
   const leadData = {};
   if (data.nome) leadData.nome = data.nome;
-  if (data.data_nascimento) leadData.data_nascimento = data.data_nascimento;
   if (data.renda) leadData.renda_mensal = String(data.renda);
   if (data.tipo) leadData.tipo_renda = data.tipo;
   if (data.imovelKey) leadData.imovel_interesse = imoveisSimulacao[data.imovelKey]?.nome;
+  if (typeof data.comDependente === "boolean") leadData.dependentes = data.comDependente ? "sim" : "não";
   if (Object.keys(leadData).length > 0) upsertLead(phone, leadData);
 }
 
@@ -350,60 +346,74 @@ async function handleMessage(phone, userText) {
     await sendWhatsAppMessage(phone, reply);
     await logMensagem(phone, "bot", reply);
 
-    // ── SIMULAÇÃO AUTOMÁTICA ─────────────────────────────────────────────────
-    // Detecta se a IA acabou de coletar todos os dados (menciona "anotei tudo" ou similar)
+    // ── EXTRAÇÃO DE LEAD + SIMULAÇÃO AUTOMÁTICA ──────────────────────────────
+    // Detecta se a IA acabou de coletar (ou tentou coletar) todos os dados
     const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||
                          reply.toLowerCase().includes("aguarde") ||
                          reply.toLowerCase().includes("alguns instantes") ||
                          reply.toLowerCase().includes("nossa equipe vai retornar");
 
-    const leadDataCheck = extractLeadFromHistory(session.getHistory());
-    const coletouDados = frasesColeta || (podeSimular(leadDataCheck) && !session.simulacaoEnviada);
+    // Só processa enquanto ainda houver algo pendente (simulação e/ou alerta da equipe).
+    // Depois que ambos acontecerem uma vez, não roda mais nada aqui — evita loop e custo extra de IA.
+    if (!session.simulacaoEnviada || !session.handoffAlertaEnviado) {
+      // Atualiza os dados do lead de forma incremental (sobrevive ao corte do histórico)
+      session.leadData = await extractLeadComIA(openai, session.getHistory(), session.leadData);
+      salvarLead(phone, session.leadData);
 
-    if (coletouDados && !session.simulacaoEnviada) {
-      const leadData = extractLeadFromHistory(session.getHistory());
-      salvarLead(phone, leadData);
-
-      if (podeSimular(leadData)) {
-        session.simulacaoEnviada = true;
-        console.log(`[${phone}] 🧮 Calculando simulação automática...`, leadData);
+      // 1) Assim que houver dados suficientes, dispara a simulação — somente UMA vez por sessão
+      if (!session.simulacaoEnviada && podeSimular(session.leadData)) {
+        console.log(`[${phone}] 🧮 Calculando simulação automática...`, session.leadData);
         await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
 
         try {
           const resultado = simular({
-            renda: leadData.renda,
-            cotista: leadData.cotista || false,
-            comDependente: leadData.comDependente || false,
-            idade: leadData.idade || 35,
+            renda: session.leadData.renda,
+            cotista: session.leadData.cotista || false,
+            comDependente: session.leadData.comDependente || false,
+            idade: session.leadData.idade || 35,
             fgts: 0,
-            imovelKey: leadData.imovelKey,
+            imovelKey: session.leadData.imovelKey,
           });
 
-          const textoSim = formatarSimulacao(resultado, leadData.nome || "");
+          const textoSim = formatarSimulacao(resultado, session.leadData.nome || "");
           await sendWhatsAppMessage(phone, textoSim);
           await logMensagem(phone, "bot", textoSim);
           session.addMessage("assistant", "[Simulação enviada automaticamente]");
-          sessionManager.save(phone, session);
+          session.simulacaoEnviada = true;
           await upsertLead(phone, { agendou: true });
         } catch (simErr) {
           console.error(`[${phone}] Erro na simulação:`, simErr.message);
         }
       }
 
-      // Handoff automático SÓ quando a IA sinalizou coleta completa (frases)
-      // Simulação automática sozinha NÃO pausa o bot — cliente pode continuar conversando
-      if (frasesColeta) {
+      // 2) Quando a IA sinaliza que terminou a coleta, fecha o ciclo — UMA vez por sessão,
+      //    mesmo que a IA repita "anotei tudo"/"aguarde" em mensagens seguintes.
+      if (frasesColeta && !session.handoffAlertaEnviado) {
+        const faltando = camposFaltantes(session.leadData);
+
+        if (!session.simulacaoEnviada) {
+          // Dados insuficientes para simular — avisa o cliente em vez de deixá-lo sem resposta
+          const msgFallback = "Só um instante — vou confirmar alguns dados com nossa equipe e já te retorno com a simulação completa por aqui mesmo! 😊";
+          await sendWhatsAppMessage(phone, msgFallback);
+          await logMensagem(phone, "bot", msgFallback);
+          session.addMessage("assistant", msgFallback);
+        }
+
         session.setWaitingForHuman(true);
-        sessionManager.save(phone, session);
+        session.handoffAlertaEnviado = true;
+
+        const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
+        if (TEAM_NUMBER) {
+          const alertMsg = formatLeadAlert(phone, session, { simulado: session.simulacaoEnviada, faltando });
+          await sendWhatsAppMessage(TEAM_NUMBER, alertMsg);
+        }
       }
-      const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
-      if (TEAM_NUMBER) {
-        const alertMsg = formatHandoffAlert(phone, session, "dados_coletados");
-        await sendWhatsAppMessage(TEAM_NUMBER, alertMsg);
-      }
+
+      sessionManager.save(phone, session);
     }
 
 }
+
 
 
 // ── ENDPOINTS ─────────────────────────────────────────────────────────────────

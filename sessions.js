@@ -9,6 +9,15 @@ class Session {
     this.waitingForHuman = false;
     this.handoffAt = null;
     this.createdAt = Date.now();
+
+    // Dados do lead acumulados progressivamente (não dependem do histórico truncado)
+    this.leadData = {};
+    // true quando a simulação já foi enviada ao cliente — evita reenvio em loop
+    this.simulacaoEnviada = false;
+    // true quando já alertamos o time sobre esse lead (coleta concluída) — evita spam
+    this.handoffAlertaEnviado = false;
+    // tamanho do histórico na última extração de dados via IA — evita extrações repetidas sem novidade
+    this.lastExtractLen = 0;
   }
 
   addMessage(role, content) {

@@ -29,8 +29,6 @@ const PHOTO_KEYWORDS = [
   { key: "della penna",      names: ["della penna", "della", "penna"] },
   { key: "nacoes",           names: ["nacoes", "setor das nacoes"] },
   { key: "pilar dos sonhos", names: ["noroeste", "pilar", "pilar dos sonhos", "sonhos", "atacadao", "portal shopping"] },
-  { key: "carolina",         names: ["carolina", "carolina parque", "joao braz"] },
-  { key: "monte pascoal",    names: ["monte pascoal", "pascoal"] },
   { key: "santa fe",         names: ["santa fe"] },
   { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade", "nascer"] },
 ];
@@ -287,6 +285,7 @@ app.post("/webhook", async (req, res) => {
 // ── BUFFER / DEBOUNCE ─────────────────────────────────────────────────────────
 const msgBuffers = new Map(); // phone -> { texts: [], timer }
 const DEBOUNCE_MS = 6000;
+const phoneQueues = new Map(); // phone -> Promise (fila sequencial de handleMessage por telefone)
 
 function bufferMessage(phone, text) {
   let buf = msgBuffers.get(phone);
@@ -299,7 +298,14 @@ function bufferMessage(phone, text) {
   buf.timer = setTimeout(() => {
     const combined = buf.texts.join("\n");
     msgBuffers.delete(phone);
-    handleMessage(phone, combined).catch(err => console.error(`[${phone}] Erro:`, err.message));
+    // Encadeia na fila do telefone — garante que handleMessage nunca rode
+    // concorrentemente para o mesmo número, mesmo se o anterior ainda estiver processando.
+    const prev = phoneQueues.get(phone) || Promise.resolve();
+    const next = prev
+      .catch(() => {})
+      .then(() => handleMessage(phone, combined))
+      .catch(err => console.error(`[${phone}] Erro:`, err.message));
+    phoneQueues.set(phone, next);
   }, DEBOUNCE_MS);
 }
 
@@ -331,6 +337,7 @@ async function handleMessage(phone, userText) {
         session.handoffAlertaEnviado = false;
         session.simulacaoEnviada = false;
         session.handoffImovelKey = null;
+        session.extractAttemptsAfterHandoff = 0;
         session.leadData.imovelKey = novoKey;
       }
     }
@@ -351,9 +358,29 @@ async function handleMessage(phone, userText) {
     // Fotos
     let imovelComFotos = null;
     if (session.awaitingPhotoChoice) {
-      session.awaitingPhotoChoice = false;
-      imovelComFotos = findImovelByText(userText);
-      await saveSession(phone, session);
+      const found = findImovelByText(userText);
+      if (found) {
+        session.awaitingPhotoChoice = false;
+        session.photoChoiceAttempts = 0;
+        imovelComFotos = found;
+        await saveSession(phone, session);
+      } else {
+        // Não reconheceu o imóvel — pergunta de novo (até 2x), depois cai no fluxo normal da IA
+        session.photoChoiceAttempts = (session.photoChoiceAttempts || 0) + 1;
+        if (session.photoChoiceAttempts <= 2) {
+          const nomes = catalog.filter(i => i.fotos?.length > 0).map(i => `• ${i.nome}`).join("\n");
+          const msgAsk = `Não encontrei esse imóvel na nossa lista 🙏 Pode me dizer o nome certinho?\n\n${nomes}`;
+          await sendWhatsAppMessage(phone, msgAsk);
+          await logMensagem(phone, "bot", msgAsk);
+          session.addMessage("assistant", msgAsk);
+          await saveSession(phone, session);
+          return;
+        } else {
+          session.awaitingPhotoChoice = false;
+          session.photoChoiceAttempts = 0;
+          await saveSession(phone, session);
+        }
+      }
     }
     if (!imovelComFotos) imovelComFotos = detectPhotoRequest(userText);
 
@@ -435,10 +462,15 @@ async function handleMessage(phone, userText) {
 
     // Só processa enquanto ainda houver algo pendente (simulação e/ou alerta da equipe).
     // Depois que ambos acontecerem uma vez, não roda mais nada aqui — evita loop e custo extra de IA.
-    if (!session.simulacaoEnviada || !session.handoffAlertaEnviado) {
+    const MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF = 3;
+    const presoAposHandoff = session.handoffAlertaEnviado && !session.simulacaoEnviada;
+    const limiteAtingido = presoAposHandoff && session.extractAttemptsAfterHandoff >= MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF;
+
+    if ((!session.simulacaoEnviada || !session.handoffAlertaEnviado) && !limiteAtingido) {
       // Atualiza os dados do lead de forma incremental (sobrevive ao corte do histórico)
       session.leadData = await extractLeadComIA(openai, session.getHistory(), session.leadData);
       salvarLead(phone, session.leadData);
+      if (presoAposHandoff) session.extractAttemptsAfterHandoff += 1;
 
       // 1) Assim que houver dados suficientes, dispara a simulação — somente UMA vez por sessão
       if (!session.simulacaoEnviada && podeSimular(session.leadData)) {

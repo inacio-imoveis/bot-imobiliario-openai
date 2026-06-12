@@ -21,8 +21,13 @@ class Session {
     // imóvel para o qual o último alerta/handoff foi disparado — usado para reabrir o ciclo
     // se o cliente demonstrar interesse em outro imóvel depois
     this.handoffImovelKey = null;
+    // quantas vezes extractLeadComIA rodou depois do handoffAlertaEnviado sem completar a simulação
+    // (limita custo de IA em leads "presos" por dado faltante)
+    this.extractAttemptsAfterHandoff = 0;
     // true depois de tentar carregar o estado salvo no banco (uma vez por processo)
     this._hydrated = false;
+    // tentativas de identificar o imóvel quando awaitingPhotoChoice está ativo
+    this.photoChoiceAttempts = 0;
   }
 
   addMessage(role, content) {

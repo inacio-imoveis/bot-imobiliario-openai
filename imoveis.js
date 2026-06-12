@@ -83,28 +83,6 @@ export const catalog = [
     ]
   },
   {
-    nome: "Casa 2 Quartos — Setor Carolina Parque",
-    quartos: 2,
-    bairro: "Setor Carolina Parque, Goiânia/GO",
-    referencia: "Ao lado do João Braz, 10 min do Shopping Cidade Jardim",
-    entrada: 15000,
-    renda_minima: 7000,
-    descricao: "Casa 2 quartos com excelente localização no Setor Carolina Parque. Próxima a comércios e serviços.",
-    diferenciais: ["2 quartos", "Excelente localização", "Próxima ao João Braz", "10 min do Shopping Cidade Jardim"],
-    fotos: []
-  },
-  {
-    nome: "Casa 2 Quartos — Setor Monte Pascoal",
-    quartos: 2,
-    bairro: "Setor Monte Pascoal, Goiânia/GO",
-    referencia: "A 10 min do Shopping América",
-    entrada: 50000,
-    renda_minima: null,
-    descricao: "Casa nova com mega quintal. Ótima para morar ou investir. Ideal para área gourmet ou espaço para a família.",
-    diferenciais: ["2 quartos", "Mega quintal", "Casa nova", "A 10 min do Shopping América"],
-    fotos: []
-  },
-  {
     nome: "Casa 2 Quartos — Setor Santa Fé",
     quartos: 2,
     bairro: "Setor Santa Fé, Goiânia/GO",

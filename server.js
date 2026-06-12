@@ -7,7 +7,7 @@ import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
-import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState } from "./db.js";
+import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, marcarFollowup1Enviado, marcarFollowup2Enviado } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
 import { extractLeadComIA, podeSimular, camposFaltantes } from "./leadExtractor.js";
 
@@ -518,6 +518,7 @@ async function handleMessage(phone, userText) {
           session.addMessage("assistant", "[Simulação enviada automaticamente]");
           session.simulacaoEnviada = true;
           await upsertLead(phone, { agendou: true });
+          await marcarSimulacaoEnviadaTimestamp(phone);
         } catch (simErr) {
           console.error(`[${phone}] Erro na simulação:`, simErr.message);
         }
@@ -606,4 +607,59 @@ app.get("/status", (req, res) => { res.json({ status: "online", sessions: sessio
 app.listen(process.env.PORT || 8080, () => {
   console.log("🤖 Bot imobiliário OpenAI rodando na porta", process.env.PORT || 8080);
 });
+
+// ── FOLLOW-UP DE ESCASSEZ/URGÊNCIA (D+1 / D+3) ──────────────────────────────
+// Reforça o senso de urgência para leads que receberam a simulação mas ainda
+// não avançaram. Roda a cada 30 minutos.
+
+function buildFollowup1(nome, imovel) {
+  const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
+  return `Oi ${primeiroNome}! Passando aqui rapidinho 😊\n\n` +
+    `Vi que você recebeu a simulação da *${imovel}* — ficou alguma dúvida sobre os valores ou sobre a forma de pagamento?\n\n` +
+    `Essa é uma casa pronta e única no nosso catálogo, não queria que você perdesse a chance por falta de informação. Posso te ajudar a agendar a visita agora? 📅\n` +
+    `https://calendar.app.google/SZ4oVatsSY8AiVGV7`;
+}
+
+function buildFollowup2(nome, imovel) {
+  const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
+  return `${primeiroNome}, só um aviso: temos tido bastante procura pela *${imovel}* essa semana.\n\n` +
+    `Como ela é uma unidade só (não tem outra igual disponível), se você ainda tem interesse, recomendo agendar a visita hoje pra garantir prioridade.\n\n` +
+    `📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7\n\n` +
+    `Se preferir, me diga e posso te mostrar outras opções parecidas! 😊`;
+}
+
+async function runFollowupJob() {
+  try {
+    const leads1 = await getLeadsParaFollowup1();
+    for (const lead of leads1) {
+      const session = sessionManager.get(lead.phone);
+      if (session.isWaitingForHuman()) continue; // já em atendimento humano — não interromper
+      const msg = buildFollowup1(lead.nome, lead.imovel_interesse || "casa que você simulou");
+      await sendWhatsAppMessage(lead.phone, msg);
+      await logMensagem(lead.phone, "bot", msg);
+      session.addMessage("assistant", "[Follow-up D+1 enviado]");
+      await marcarFollowup1Enviado(lead.phone);
+      console.log(`[${lead.phone}] 📤 Follow-up D+1 enviado`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    const leads2 = await getLeadsParaFollowup2();
+    for (const lead of leads2) {
+      const session = sessionManager.get(lead.phone);
+      if (session.isWaitingForHuman()) continue;
+      const msg = buildFollowup2(lead.nome, lead.imovel_interesse || "casa que você simulou");
+      await sendWhatsAppMessage(lead.phone, msg);
+      await logMensagem(lead.phone, "bot", msg);
+      session.addMessage("assistant", "[Follow-up D+3 enviado]");
+      await marcarFollowup2Enviado(lead.phone);
+      console.log(`[${lead.phone}] 📤 Follow-up D+3 enviado`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  } catch (err) {
+    console.error("Erro no job de follow-up:", err.message);
+  }
+}
+
+setInterval(runFollowupJob, 30 * 60 * 1000); // a cada 30 minutos
+setTimeout(runFollowupJob, 60 * 1000); // primeira execução 1 min após start
 

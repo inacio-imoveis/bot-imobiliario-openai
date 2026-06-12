@@ -466,9 +466,16 @@ async function handleMessage(phone, userText) {
     const presoAposHandoff = session.handoffAlertaEnviado && !session.simulacaoEnviada;
     const limiteAtingido = presoAposHandoff && session.extractAttemptsAfterHandoff >= MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF;
 
-    if ((!session.simulacaoEnviada || !session.handoffAlertaEnviado) && !limiteAtingido) {
+    // Lead "preso" sem dado completo (nunca chegou no handoff): o histórico é truncado em
+    // 20 mensagens, então depois de ~10 trocas sem progresso o tamanho fica estável em 20.
+    // Se já extraímos com esse mesmo tamanho de histórico e nada mudou, não vale repetir a
+    // chamada de IA — evita custo extra sem novidade.
+    const historicoMudou = session.getHistory().length !== session.lastExtractLen;
+
+    if ((!session.simulacaoEnviada || !session.handoffAlertaEnviado) && !limiteAtingido && historicoMudou) {
       // Atualiza os dados do lead de forma incremental (sobrevive ao corte do histórico)
       session.leadData = await extractLeadComIA(openai, session.getHistory(), session.leadData);
+      session.lastExtractLen = session.getHistory().length;
       salvarLead(phone, session.leadData);
       if (presoAposHandoff) session.extractAttemptsAfterHandoff += 1;
 

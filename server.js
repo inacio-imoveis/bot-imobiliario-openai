@@ -7,7 +7,7 @@ import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
-import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo } from "./db.js";
+import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
 import { extractLeadComIA, podeSimular, camposFaltantes } from "./leadExtractor.js";
 
@@ -154,6 +154,43 @@ function extractLeadFromHistory(messages) {
   return data;
 }
 
+// Salva a sessão em memória e persiste o estado do lead no banco (sobrevive a restarts)
+async function saveSession(phone, session) {
+  sessionManager.save(phone, session);
+  await saveSessionState(phone, {
+    leadData: session.leadData,
+    simulacaoEnviada: session.simulacaoEnviada,
+    handoffAlertaEnviado: session.handoffAlertaEnviado,
+    handoffImovelKey: session.handoffImovelKey,
+  });
+}
+
+// Carrega estado salvo (leadData/flags) e reconstrói histórico recente a partir do banco,
+// para sessões novas em memória (ex: depois de um restart/redeploy do Railway)
+async function hydrateSession(phone, session) {
+  session._hydrated = true;
+  try {
+    const state = await getSessionState(phone);
+    if (state) {
+      session.leadData = state.leadData || {};
+      session.simulacaoEnviada = state.simulacaoEnviada;
+      session.handoffAlertaEnviado = state.handoffAlertaEnviado;
+      session.handoffImovelKey = state.handoffImovelKey;
+    }
+
+    if (session.history.length === 0) {
+      const conversas = await getConversas(phone, 20);
+      const historico = conversas
+        .slice()
+        .reverse()
+        .map(c => ({ role: c.direcao === "cliente" ? "user" : "assistant", content: c.mensagem }));
+      session.history = historico.slice(-20);
+    }
+  } catch (err) {
+    console.error(`[${phone}] Erro ao carregar estado da sessão:`, err.message);
+  }
+}
+
 // Salvar dados no banco a partir do leadData acumulado da sessão
 function salvarLead(phone, data) {
   const leadData = {};
@@ -273,6 +310,11 @@ async function handleMessage(phone, userText) {
 
     const session = sessionManager.get(phone);
 
+    // Sessão nova em memória (ex: após restart/redeploy) — recupera estado salvo no banco
+    if (!session._hydrated) {
+      await hydrateSession(phone, session);
+    }
+
     if (session.isWaitingForHuman()) {
       console.log(`[${phone}] Em espera de atendente — bot pausado.`);
       return;
@@ -280,11 +322,24 @@ async function handleMessage(phone, userText) {
 
     session.addMessage("user", userText);
 
+    // Cliente demonstrou interesse em OUTRO imóvel depois de já ter passado pelo
+    // ciclo de simulação/alerta — reabre o ciclo pra esse novo imóvel
+    if (session.handoffAlertaEnviado) {
+      const novoKey = extractLeadFromHistory([{ role: "user", content: userText }]).imovelKey;
+      if (novoKey && novoKey !== session.handoffImovelKey) {
+        console.log(`[${phone}] 🔄 Novo interesse detectado (${novoKey}) — reabrindo ciclo de simulação/alerta.`);
+        session.handoffAlertaEnviado = false;
+        session.simulacaoEnviada = false;
+        session.handoffImovelKey = null;
+        session.leadData.imovelKey = novoKey;
+      }
+    }
+
     // Handoff manual
     const handoffRequest = detectHandoffTrigger(userText);
     if (handoffRequest) {
       session.setWaitingForHuman(true);
-      sessionManager.save(phone, session);
+      await saveSession(phone, session);
       const msg = "Entendido! 🙋 Vou chamar um consultor agora. Aguarde um momento.";
       await sendWhatsAppMessage(phone, msg);
       await logMensagem(phone, "bot", msg);
@@ -298,7 +353,7 @@ async function handleMessage(phone, userText) {
     if (session.awaitingPhotoChoice) {
       session.awaitingPhotoChoice = false;
       imovelComFotos = findImovelByText(userText);
-      sessionManager.save(phone, session);
+      await saveSession(phone, session);
     }
     if (!imovelComFotos) imovelComFotos = detectPhotoRequest(userText);
 
@@ -326,7 +381,7 @@ async function handleMessage(phone, userText) {
         await logMensagem(phone, "bot", msgAsk);
         session.addMessage("assistant", msgAsk);
         session.awaitingPhotoChoice = true;
-        sessionManager.save(phone, session);
+        await saveSession(phone, session);
         return;
       }
     }
@@ -349,7 +404,7 @@ async function handleMessage(phone, userText) {
         await logMensagem(phone, "bot", msg);
         session.addMessage("assistant", `[Sem fotos do ${imovelComFotos.nome}]`);
       }
-      sessionManager.save(phone, session);
+      await saveSession(phone, session);
       await upsertLead(phone, { imovel_interesse: imovelComFotos.nome });
       return;
     }
@@ -366,7 +421,7 @@ async function handleMessage(phone, userText) {
 
     const reply = response.choices[0].message.content;
     session.addMessage("assistant", reply);
-    sessionManager.save(phone, session);
+    await saveSession(phone, session);
 
     await sendWhatsAppMessage(phone, reply);
     await logMensagem(phone, "bot", reply);
@@ -426,6 +481,7 @@ async function handleMessage(phone, userText) {
 
         session.setWaitingForHuman(true);
         session.handoffAlertaEnviado = true;
+        session.handoffImovelKey = session.leadData.imovelKey || null;
 
         const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
         if (TEAM_NUMBER) {
@@ -434,7 +490,7 @@ async function handleMessage(phone, userText) {
         }
       }
 
-      sessionManager.save(phone, session);
+      await saveSession(phone, session);
     }
 
 }

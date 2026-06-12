@@ -34,6 +34,11 @@ export async function initDB() {
         atualizado_em TIMESTAMP DEFAULT NOW()
       );
     `);
+    // Estado da sessão (lead acumulado + flags anti-loop), pra sobreviver a restarts/redeploys
+    await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_data JSONB;`);
+    await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS simulacao_enviada BOOLEAN DEFAULT FALSE;`);
+    await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS handoff_alerta_enviado BOOLEAN DEFAULT FALSE;`);
+    await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS handoff_imovel_key VARCHAR(50);`);
     console.log("✅ Banco de dados inicializado");
   } catch (err) {
     console.error("❌ Erro ao inicializar banco:", err.message);
@@ -72,6 +77,53 @@ export async function upsertLead(phone, dados) {
     }
   } catch (err) {
     console.error("Erro ao salvar lead:", err.message);
+  }
+}
+
+// Buscar estado da sessão salvo (lead acumulado + flags anti-loop)
+export async function getSessionState(phone) {
+  try {
+    const res = await pool.query(
+      "SELECT lead_data, simulacao_enviada, handoff_alerta_enviado, handoff_imovel_key FROM leads WHERE phone = $1",
+      [phone]
+    );
+    if (res.rows.length === 0) return null;
+    const row = res.rows[0];
+    return {
+      leadData: row.lead_data || {},
+      simulacaoEnviada: !!row.simulacao_enviada,
+      handoffAlertaEnviado: !!row.handoff_alerta_enviado,
+      handoffImovelKey: row.handoff_imovel_key || null,
+    };
+  } catch (err) {
+    console.error("Erro ao buscar estado da sessão:", err.message);
+    return null;
+  }
+}
+
+// Salvar estado da sessão (lead acumulado + flags anti-loop)
+export async function saveSessionState(phone, state) {
+  try {
+    const dados = {
+      lead_data: JSON.stringify(state.leadData || {}),
+      simulacao_enviada: !!state.simulacaoEnviada,
+      handoff_alerta_enviado: !!state.handoffAlertaEnviado,
+      handoff_imovel_key: state.handoffImovelKey || null,
+    };
+    const existing = await pool.query("SELECT id FROM leads WHERE phone = $1", [phone]);
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE leads SET lead_data = $2, simulacao_enviada = $3, handoff_alerta_enviado = $4, handoff_imovel_key = $5, atualizado_em = NOW() WHERE phone = $1`,
+        [phone, dados.lead_data, dados.simulacao_enviada, dados.handoff_alerta_enviado, dados.handoff_imovel_key]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO leads (phone, lead_data, simulacao_enviada, handoff_alerta_enviado, handoff_imovel_key) VALUES ($1, $2, $3, $4, $5)`,
+        [phone, dados.lead_data, dados.simulacao_enviada, dados.handoff_alerta_enviado, dados.handoff_imovel_key]
+      );
+    }
+  } catch (err) {
+    console.error("Erro ao salvar estado da sessão:", err.message);
   }
 }
 

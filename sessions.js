@@ -18,6 +18,11 @@ class Session {
     this.handoffAlertaEnviado = false;
     // tamanho do histórico na última extração de dados via IA — evita extrações repetidas sem novidade
     this.lastExtractLen = 0;
+    // imóvel para o qual o último alerta/handoff foi disparado — usado para reabrir o ciclo
+    // se o cliente demonstrar interesse em outro imóvel depois
+    this.handoffImovelKey = null;
+    // true depois de tentar carregar o estado salvo no banco (uma vez por processo)
+    this._hydrated = false;
   }
 
   addMessage(role, content) {

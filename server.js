@@ -22,6 +22,20 @@ const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://evolution-ap
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "ed44cb6b57f549bd2e1a9fad756fefd59387fd2962b5748d6939099742ff8640";
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "bot-ricardo";
 
+// ── DEDUPLICAÇÃO DE WEBHOOK ─────────────────────────────────────────────────
+// A Evolution API pode reenviar o mesmo evento MESSAGES_UPSERT mais de uma vez
+// (ex: update de status, retry). Sem isso, o bot processa a mesma mensagem
+// duas vezes e manda respostas/fotos duplicadas.
+const processedMessageIds = new Set();
+const MESSAGE_ID_TTL_MS = 10 * 60 * 1000; // 10 minutos
+function isDuplicateMessage(id) {
+  if (!id) return false;
+  if (processedMessageIds.has(id)) return true;
+  processedMessageIds.add(id);
+  setTimeout(() => processedMessageIds.delete(id), MESSAGE_ID_TTL_MS);
+  return false;
+}
+
 // ── DETECTORES ──────────────────────────────────────────────────────────────
 
 const PHOTO_KEYWORDS = [
@@ -239,6 +253,10 @@ app.post("/webhook", async (req, res) => {
       const data = body.data || body;
       const key = data.key || {};
       if (key.fromMe === true) return;
+      if (isDuplicateMessage(key.id)) {
+        console.log(`[webhook] Mensagem duplicada ignorada (id: ${key.id})`);
+        return;
+      }
       phone = key.remoteJid?.replace("@s.whatsapp.net", "").replace("@g.us", "");
       if (key.remoteJid?.includes("@g.us")) return;
 
@@ -588,3 +606,4 @@ app.get("/status", (req, res) => { res.json({ status: "online", sessions: sessio
 app.listen(process.env.PORT || 8080, () => {
   console.log("🤖 Bot imobiliário OpenAI rodando na porta", process.env.PORT || 8080);
 });
+

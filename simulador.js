@@ -136,12 +136,14 @@ export function simular(dados) {
 
 export function formatarSimulacao(s, nomeCliente = "") {
   const nome = nomeCliente.split(" ")[0] || "cliente";
-  let txt = `Olá, ${nome}! Realizamos uma simulação com base nas suas informações. 😊\n\n`;
-  txt += `🏠 *Imóvel:* ${s.imovel}\n`;
-  txt += `💵 *Valor do imóvel:* ${fmt(s.valorVenda)}\n\n`;
+  let txt = `Oi, ${nome}! 🎉 Sua simulação ficou pronta — e o resultado foi ótimo!\n\n`;
+  txt += `🏠 *${s.imovel}*\n`;
+  txt += `📍 Imóvel único — não é lançamento com várias unidades, é UMA casa disponível.\n\n`;
   txt += `✅ *Valor financiado pela Caixa:* ${fmt(s.valorFinanciado)}\n`;
-  if (s.subsidio > 0) txt += `🎁 *Subsídio do governo:* ${fmt(s.subsidio)}\n`;
-  txt += `🔑 *Entrada necessária:* ${fmt(s.entrada)}`;
+  if (s.subsidio > 0) {
+    txt += `🎁 *Subsídio do governo aprovado pro seu perfil:* ${fmt(s.subsidio)}\n`;
+  }
+  txt += `🔑 *Entrada:* ${fmt(s.entrada)}`;
   if (s.entradaComFGTS !== null && s.entradaComFGTS < s.entrada) {
     txt += ` (ou *${fmt(s.entradaComFGTS)}* usando o FGTS na entrada)`;
   }
@@ -150,9 +152,20 @@ export function formatarSimulacao(s, nomeCliente = "") {
   txt += `📉 *Parcela final estimada:* ${fmt(s.parcelaFinal)}/mês\n`;
   txt += `📌 ${s.faixaLabel}\n`;
   txt += `⏳ *Prazo:* ${s.prazoAnos} anos (${s.prazoMeses} meses)\n\n`;
-  txt += `🔎 Com base nessa simulação, existe possibilidade de aprovação para financiamento nessa faixa de valor, porém a *aprovação final dependerá da análise de crédito realizada pelo banco*.\n\n`;
-  txt += `📋 A aprovação considera score, compromissos financeiros e documentação apresentada.`;
+
+  txt += `⚠️ *Importante:* esse resultado é calculado com base nas informações enviadas agora. `;
+  txt += `As faixas e condições do programa Minha Casa Minha Vida são revisadas periodicamente pela Caixa, então essa condição pode mudar.\n\n`;
+
+  txt += `🔥 Essa casa é a única unidade disponível com essas características nessa faixa de entrada. `;
+  txt += `Recomendo agendar a visita o quanto antes pra garantir que ela ainda esteja disponível quando você decidir.\n\n`;
+
+  txt += `🔎 A aprovação final ainda depende da análise de crédito do banco (score, compromissos financeiros e documentação apresentada).`;
   if (s.fgts > 0) txt += ` O FGTS de ${fmt(s.fgts)} pode ser usado para reduzir a entrada.`;
-  txt += `\n\nGostou dos valores? 😍 Quer agendar uma visita para conhecer a casa pessoalmente? 🏠`;
+  txt += `\n\n`;
+
+  txt += `Quer marcar sua visita agora? Em 1 minuto você escolhe o melhor dia 👇\n`;
+  txt += `📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7`;
+
   return txt;
 }
+

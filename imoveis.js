@@ -125,17 +125,12 @@ export const catalog = [
     descricao: "Casa 2 quartos com mega quintal para aproveitar com a família, receber amigos, montar área gourmet ou deixar as crianças brincarem com liberdade.",
     diferenciais: ["2 quartos", "Mega quintal", "Área gourmet", "A 9 min do Shopping Plaza D'Oro"],
     fotos: [
-      "https://i.ibb.co/QFsJhKpV/IMG-7699.jpg",
-      "https://i.ibb.co/vxTQTdvL/IMG-7741.jpg",
-      "https://i.ibb.co/chqLXfqD/IMG-7756.jpg",
-      "https://i.ibb.co/3yy5d0hD/IMG-7761.jpg",
-      "https://i.ibb.co/CKnKV3m3/IMG-7775.jpg",
-      "https://i.ibb.co/NgW46TKW/IMG-8343.jpg",
-      "https://i.ibb.co/PKzLZnK/IMG-8359.jpg",
-      "https://i.ibb.co/nMW03D67/IMG-8365.jpg",
-      "https://i.ibb.co/SY5DC6f/IMG-8375.jpg",
-      "https://i.ibb.co/LX4jrf0R/IMG-8376.jpg",
-      "https://i.ibb.co/ZpxD58mk/IMG-8383.jpg"
+      "https://ricardoinacioimoveis.com.br/imagens/botanico-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/botanico-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/botanico-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/botanico-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/botanico-5.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/botanico-6.jpeg"
     ]
   },
 ];

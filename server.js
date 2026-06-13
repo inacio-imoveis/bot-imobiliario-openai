@@ -660,6 +660,6 @@ async function runFollowupJob() {
   }
 }
 
-setInterval(runFollowupJob, 60 * 1000); // MODO TESTE: a cada 1 minuto (normal: 30 minutos)
-setTimeout(runFollowupJob, 10 * 1000); // MODO TESTE: primeira execução em 10s (normal: 1 min)
+setInterval(runFollowupJob, 30 * 60 * 1000); // a cada 30 minutos
+setTimeout(runFollowupJob, 60 * 1000); // primeira execução após 1 minuto
 

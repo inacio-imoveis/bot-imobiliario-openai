@@ -7,7 +7,7 @@ import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
-import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, marcarFollowup1Enviado, marcarFollowup2Enviado } from "./db.js";
+import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, getLeadsParaFollowup3, getLeadsParaFollowup4, marcarFollowup1Enviado, marcarFollowup2Enviado, marcarFollowup3Enviado, marcarFollowup4Enviado } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
 import { extractLeadComIA, podeSimular, camposFaltantes } from "./leadExtractor.js";
 
@@ -608,9 +608,10 @@ app.listen(process.env.PORT || 8080, () => {
   console.log("🤖 Bot imobiliário OpenAI rodando na porta", process.env.PORT || 8080);
 });
 
-// ── FOLLOW-UP DE ESCASSEZ/URGÊNCIA (D+1 / D+3) ──────────────────────────────
+// ── CASCATA DE FOLLOW-UP DE ESCASSEZ/URGÊNCIA (D+1 / D+7 / D+14 / D+30) ──────
 // Reforça o senso de urgência para leads que receberam a simulação mas ainda
-// não avançaram. Roda a cada 30 minutos.
+// não avançaram. Cada etapa só é enviada se o lead NÃO respondeu nada desde a
+// simulação (qualquer resposta cancela as próximas etapas). Roda a cada 30 min.
 
 function buildFollowup1(nome, imovel) {
   const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
@@ -626,6 +627,20 @@ function buildFollowup2(nome, imovel) {
     `Como ela é uma unidade só (não tem outra igual disponível), se você ainda tem interesse, recomendo agendar a visita hoje pra garantir prioridade.\n\n` +
     `📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7\n\n` +
     `Se preferir, me diga e posso te mostrar outras opções parecidas! 😊`;
+}
+
+function buildFollowup3(nome, imovel) {
+  const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
+  return `Oi ${primeiroNome}! Faz um tempinho que conversamos sobre a *${imovel}*. 😊\n\n` +
+    `Ainda tem interesse? Se mudou de ideia ou está procurando algo diferente (outro bairro, valor de entrada, número de quartos), me conta que eu te mostro outras opções do nosso catálogo.\n\n` +
+    `E se quiser seguir com essa, é só me chamar pra agendar a visita: 📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7`;
+}
+
+function buildFollowup4(nome, imovel) {
+  const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
+  return `${primeiroNome}, essa é só uma última mensagem da minha parte sobre a *${imovel}*. 🙂\n\n` +
+    `Se ainda fizer sentido pra você, me chama que eu vejo a disponibilidade e agendamos a visita: 📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7\n\n` +
+    `Se não for mais o momento, sem problema — qualquer hora que precisar de algo é só falar comigo aqui. 😊`;
 }
 
 async function runFollowupJob() {
@@ -650,9 +665,35 @@ async function runFollowupJob() {
       const msg = buildFollowup2(lead.nome, lead.imovel_interesse || "casa que você simulou");
       await sendWhatsAppMessage(lead.phone, msg);
       await logMensagem(lead.phone, "bot", msg);
-      session.addMessage("assistant", "[Follow-up D+3 enviado]");
+      session.addMessage("assistant", "[Follow-up D+7 enviado]");
       await marcarFollowup2Enviado(lead.phone);
-      console.log(`[${lead.phone}] 📤 Follow-up D+3 enviado`);
+      console.log(`[${lead.phone}] 📤 Follow-up D+7 enviado`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    const leads3 = await getLeadsParaFollowup3();
+    for (const lead of leads3) {
+      const session = sessionManager.get(lead.phone);
+      if (session.isWaitingForHuman()) continue;
+      const msg = buildFollowup3(lead.nome, lead.imovel_interesse || "casa que você simulou");
+      await sendWhatsAppMessage(lead.phone, msg);
+      await logMensagem(lead.phone, "bot", msg);
+      session.addMessage("assistant", "[Follow-up D+14 enviado]");
+      await marcarFollowup3Enviado(lead.phone);
+      console.log(`[${lead.phone}] 📤 Follow-up D+14 enviado`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    const leads4 = await getLeadsParaFollowup4();
+    for (const lead of leads4) {
+      const session = sessionManager.get(lead.phone);
+      if (session.isWaitingForHuman()) continue;
+      const msg = buildFollowup4(lead.nome, lead.imovel_interesse || "casa que você simulou");
+      await sendWhatsAppMessage(lead.phone, msg);
+      await logMensagem(lead.phone, "bot", msg);
+      session.addMessage("assistant", "[Follow-up D+30 enviado]");
+      await marcarFollowup4Enviado(lead.phone);
+      console.log(`[${lead.phone}] 📤 Follow-up D+30 enviado`);
       await new Promise(r => setTimeout(r, 1000));
     }
   } catch (err) {

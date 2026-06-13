@@ -200,7 +200,7 @@ export async function getLeadsParaFollowup1() {
       SELECT phone, nome, imovel_interesse FROM leads
       WHERE simulacao_enviada = TRUE
         AND simulacao_enviada_em IS NOT NULL
-        AND simulacao_enviada_em <= NOW() - INTERVAL '2 minutes'
+        AND simulacao_enviada_em <= NOW() - INTERVAL '1 day'
         AND (followup1_enviado IS NOT TRUE)
     `);
     return res.rows;
@@ -219,7 +219,7 @@ export async function getLeadsParaFollowup2() {
       WHERE simulacao_enviada = TRUE
         AND followup1_enviado = TRUE
         AND followup2_enviado IS NOT TRUE
-        AND simulacao_enviada_em <= NOW() - INTERVAL '4 minutes'
+        AND simulacao_enviada_em <= NOW() - INTERVAL '3 days'
     `);
     return res.rows;
   } catch (err) {

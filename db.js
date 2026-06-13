@@ -43,6 +43,8 @@ export async function initDB() {
     await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS simulacao_enviada_em TIMESTAMP;`);
     await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup1_enviado BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup2_enviado BOOLEAN DEFAULT FALSE;`);
+    await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup3_enviado BOOLEAN DEFAULT FALSE;`);
+    await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup4_enviado BOOLEAN DEFAULT FALSE;`);
     console.log("✅ Banco de dados inicializado");
   } catch (err) {
     console.error("❌ Erro ao inicializar banco:", err.message);
@@ -193,7 +195,12 @@ export async function marcarSimulacaoEnviadaTimestamp(phone) {
   }
 }
 
-// Leads que receberam simulação há mais de 24h e ainda não receberam o follow-up D+1
+// Cascata de follow-up de escassez/urgência: D+1, D+7, D+14, D+30.
+// Cada etapa só é enviada se a anterior já foi enviada e o lead NÃO respondeu
+// (nenhuma mensagem do cliente) desde que a simulação foi enviada — qualquer
+// resposta do lead cancela toda a cascata seguinte.
+
+// D+1: 1 dia após a simulação, sem follow-up 1 ainda
 export async function getLeadsParaFollowup1() {
   try {
     const res = await pool.query(`
@@ -202,16 +209,21 @@ export async function getLeadsParaFollowup1() {
         AND simulacao_enviada_em IS NOT NULL
         AND simulacao_enviada_em <= NOW() - INTERVAL '1 day'
         AND (followup1_enviado IS NOT TRUE)
+        AND NOT EXISTS (
+          SELECT 1 FROM conversas
+          WHERE conversas.phone = leads.phone
+            AND conversas.direcao = 'cliente'
+            AND conversas.criado_em > leads.simulacao_enviada_em
+        )
     `);
     return res.rows;
   } catch (err) {
-    console.error("Erro ao buscar leads para follow-up 1:", err.message);
+    console.error("Erro ao buscar leads para follow-up 1 (D+1):", err.message);
     return [];
   }
 }
 
-// Leads que já receberam o follow-up D+1 há mais de 48h (ou seja, D+3 desde a simulação)
-// e ainda não receberam o follow-up D+3
+// D+7: 7 dias após a simulação, follow-up 1 já enviado, follow-up 2 ainda não
 export async function getLeadsParaFollowup2() {
   try {
     const res = await pool.query(`
@@ -219,11 +231,63 @@ export async function getLeadsParaFollowup2() {
       WHERE simulacao_enviada = TRUE
         AND followup1_enviado = TRUE
         AND followup2_enviado IS NOT TRUE
-        AND simulacao_enviada_em <= NOW() - INTERVAL '3 days'
+        AND simulacao_enviada_em <= NOW() - INTERVAL '7 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM conversas
+          WHERE conversas.phone = leads.phone
+            AND conversas.direcao = 'cliente'
+            AND conversas.criado_em > leads.simulacao_enviada_em
+        )
     `);
     return res.rows;
   } catch (err) {
-    console.error("Erro ao buscar leads para follow-up 2:", err.message);
+    console.error("Erro ao buscar leads para follow-up 2 (D+7):", err.message);
+    return [];
+  }
+}
+
+// D+14: 14 dias após a simulação, follow-up 2 já enviado, follow-up 3 ainda não
+export async function getLeadsParaFollowup3() {
+  try {
+    const res = await pool.query(`
+      SELECT phone, nome, imovel_interesse FROM leads
+      WHERE simulacao_enviada = TRUE
+        AND followup2_enviado = TRUE
+        AND followup3_enviado IS NOT TRUE
+        AND simulacao_enviada_em <= NOW() - INTERVAL '14 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM conversas
+          WHERE conversas.phone = leads.phone
+            AND conversas.direcao = 'cliente'
+            AND conversas.criado_em > leads.simulacao_enviada_em
+        )
+    `);
+    return res.rows;
+  } catch (err) {
+    console.error("Erro ao buscar leads para follow-up 3 (D+14):", err.message);
+    return [];
+  }
+}
+
+// D+30: 30 dias após a simulação, follow-up 3 já enviado, follow-up 4 ainda não
+export async function getLeadsParaFollowup4() {
+  try {
+    const res = await pool.query(`
+      SELECT phone, nome, imovel_interesse FROM leads
+      WHERE simulacao_enviada = TRUE
+        AND followup3_enviado = TRUE
+        AND followup4_enviado IS NOT TRUE
+        AND simulacao_enviada_em <= NOW() - INTERVAL '30 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM conversas
+          WHERE conversas.phone = leads.phone
+            AND conversas.direcao = 'cliente'
+            AND conversas.criado_em > leads.simulacao_enviada_em
+        )
+    `);
+    return res.rows;
+  } catch (err) {
+    console.error("Erro ao buscar leads para follow-up 4 (D+30):", err.message);
     return [];
   }
 }
@@ -241,6 +305,22 @@ export async function marcarFollowup2Enviado(phone) {
     await pool.query(`UPDATE leads SET followup2_enviado = TRUE WHERE phone = $1`, [phone]);
   } catch (err) {
     console.error("Erro ao marcar follow-up 2:", err.message);
+  }
+}
+
+export async function marcarFollowup3Enviado(phone) {
+  try {
+    await pool.query(`UPDATE leads SET followup3_enviado = TRUE WHERE phone = $1`, [phone]);
+  } catch (err) {
+    console.error("Erro ao marcar follow-up 3:", err.message);
+  }
+}
+
+export async function marcarFollowup4Enviado(phone) {
+  try {
+    await pool.query(`UPDATE leads SET followup4_enviado = TRUE WHERE phone = $1`, [phone]);
+  } catch (err) {
+    console.error("Erro ao marcar follow-up 4:", err.message);
   }
 }
 

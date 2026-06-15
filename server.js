@@ -174,6 +174,8 @@ async function saveSession(phone, session) {
     simulacaoEnviada: session.simulacaoEnviada,
     handoffAlertaEnviado: session.handoffAlertaEnviado,
     handoffImovelKey: session.handoffImovelKey,
+    extractAttemptsAfterHandoff: session.extractAttemptsAfterHandoff,
+    lastExtractLen: session.lastExtractLen,
   });
 }
 
@@ -188,6 +190,8 @@ async function hydrateSession(phone, session) {
       session.simulacaoEnviada = state.simulacaoEnviada;
       session.handoffAlertaEnviado = state.handoffAlertaEnviado;
       session.handoffImovelKey = state.handoffImovelKey;
+      session.extractAttemptsAfterHandoff = state.extractAttemptsAfterHandoff || 0;
+      session.lastExtractLen = state.lastExtractLen || 0;
     }
 
     if (session.history.length === 0) {

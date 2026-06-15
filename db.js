@@ -95,11 +95,18 @@ export async function getSessionState(phone) {
     );
     if (res.rows.length === 0) return null;
     const row = res.rows[0];
+    const leadData = row.lead_data || {};
+    // _meta carrega contadores de controle anti-loop dentro do mesmo JSONB,
+    // sem precisar de colunas extras. Não faz parte dos dados do lead em si.
+    const meta = leadData._meta || {};
+    const { _meta, ...leadDataLimpo } = leadData;
     return {
-      leadData: row.lead_data || {},
+      leadData: leadDataLimpo,
       simulacaoEnviada: !!row.simulacao_enviada,
       handoffAlertaEnviado: !!row.handoff_alerta_enviado,
       handoffImovelKey: row.handoff_imovel_key || null,
+      extractAttemptsAfterHandoff: meta.extractAttemptsAfterHandoff || 0,
+      lastExtractLen: meta.lastExtractLen || 0,
     };
   } catch (err) {
     console.error("Erro ao buscar estado da sessão:", err.message);
@@ -110,8 +117,15 @@ export async function getSessionState(phone) {
 // Salvar estado da sessão (lead acumulado + flags anti-loop)
 export async function saveSessionState(phone, state) {
   try {
+    const leadDataComMeta = {
+      ...(state.leadData || {}),
+      _meta: {
+        extractAttemptsAfterHandoff: state.extractAttemptsAfterHandoff || 0,
+        lastExtractLen: state.lastExtractLen || 0,
+      },
+    };
     const dados = {
-      lead_data: JSON.stringify(state.leadData || {}),
+      lead_data: JSON.stringify(leadDataComMeta),
       simulacao_enviada: !!state.simulacaoEnviada,
       handoff_alerta_enviado: !!state.handoffAlertaEnviado,
       handoff_imovel_key: state.handoffImovelKey || null,

@@ -1,6 +1,6 @@
 import { imoveisSimulacao } from "./simulador.js";
 
-const IMOVEL_KEYS = Object.keys(imoveisSimulacao); // ["pilar","botanico","della","nacoes","santafe","nascer"]
+const IMOVEL_KEYS = Object.keys(imoveisSimulacao).filter(k => imoveisSimulacao[k].status === "disponivel"); // ["pilar","botanico","della","nacoes","santafe","nascer"]
 
 /**
  * Extrai dados do lead a partir do histórico da conversa usando IA (gpt-4o-mini),
@@ -66,7 +66,7 @@ function mergeLeadData(atual, novo) {
 
 // Verifica se tem dados suficientes para simular
 export function podeSimular(data) {
-  return !!(data && data.renda > 0 && data.imovelKey && imoveisSimulacao[data.imovelKey]);
+  return !!(data && data.renda > 0 && data.imovelKey && imoveisSimulacao[data.imovelKey] && imoveisSimulacao[data.imovelKey].status === "disponivel");
 }
 
 // Retorna em português o que falta para simular (usado no alerta de handoff)

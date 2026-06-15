@@ -7,12 +7,12 @@
 
 // Catálogo interno (avaliação OCULTA para o cliente)
 export const imoveisSimulacao = {
-  pilar:    { nome: "Pilar dos Sonhos", venda: 320000, avaliacao: 380000 },
-  botanico: { nome: "Botânico",         venda: 283000, avaliacao: 343000 },
-  della:    { nome: "Della Penna",      venda: 280000, avaliacao: 280000 },
-  nacoes:   { nome: "Setor das Nações", venda: 320000, avaliacao: 320000 },
-  santafe:  { nome: "Santa Fé",         venda: 300000, avaliacao: 343291 },
-  nascer:   { nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão", venda: 430000, avaliacao: 465000 },
+  pilar:    { nome: "Pilar dos Sonhos", status: "disponivel", venda: 320000, avaliacao: 380000 },
+  botanico: { nome: "Botânico",         status: "disponivel", venda: 283000, avaliacao: 343000 },
+  della:    { nome: "Della Penna",      status: "disponivel", venda: 280000, avaliacao: 280000 },
+  nacoes:   { nome: "Setor das Nações", status: "disponivel", venda: 320000, avaliacao: 320000 },
+  santafe:  { nome: "Santa Fé",         status: "disponivel", venda: 300000, avaliacao: 343291 },
+  nascer:   { nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão", status: "disponivel", venda: 430000, avaliacao: 465000 },
 };
 
 // Tabela oficial de taxas por faixa de renda
@@ -88,6 +88,7 @@ export function simular(dados) {
 
   const imovel = imoveisSimulacao[imovelKey];
   if (!imovel) throw new Error("Imóvel não encontrado");
+  if (imovel.status !== "disponivel") throw new Error("Imóvel indisponível");
 
   const taxaInfo = getTaxa(renda, cotista);
   if (!taxaInfo) throw new Error("Renda fora do limite MCMV");
@@ -103,7 +104,7 @@ export function simular(dados) {
   const entradaComFGTS = fgts > 0 ? Math.max(0, entrada - fgts) : null;
 
   // Prazo
-  const prazoAnos = Math.min(80 - idade, 35);
+  const prazoAnos = Math.max(Math.min(80 - idade, 35), 1);
   const prazoMeses = prazoAnos * 12;
 
   // Parcelas
@@ -136,31 +137,30 @@ export function simular(dados) {
 
 export function formatarSimulacao(s, nomeCliente = "") {
   const nome = nomeCliente.split(" ")[0] || "cliente";
-  let txt = `Oi, ${nome}! 🎉 Sua simulação ficou pronta — e o resultado foi ótimo!\n\n`;
+  let txt = `Oi, ${nome}! 🎉 Sua pré-simulação ficou pronta!\n\n`;
   txt += `🏠 *${s.imovel}*\n`;
   txt += `📍 Imóvel único — não é lançamento com várias unidades, é UMA casa disponível.\n\n`;
-  txt += `✅ *Valor financiado pela Caixa:* ${fmt(s.valorFinanciado)}\n`;
+  txt += `✅ *Valor estimado a financiar pela Caixa:* ${fmt(s.valorFinanciado)}\n`;
   if (s.subsidio > 0) {
-    txt += `🎁 *Subsídio do governo aprovado pro seu perfil:* ${fmt(s.subsidio)}\n`;
+    txt += `🎁 *Subsídio estimado para seu perfil:* ${fmt(s.subsidio)}\n`;
   }
-  txt += `🔑 *Entrada:* ${fmt(s.entrada)}`;
+  txt += `🔑 *Entrada estimada:* ${fmt(s.entrada)}`;
   if (s.entradaComFGTS !== null && s.entradaComFGTS < s.entrada) {
     txt += ` (ou *${fmt(s.entradaComFGTS)}* usando o FGTS na entrada)`;
   }
   txt += `\n\n`;
-  txt += `💰 *Parcela inicial:* ${fmt(s.parcelaInicial)}/mês\n`;
+  txt += `💰 *Parcela inicial estimada:* ${fmt(s.parcelaInicial)}/mês\n`;
   txt += `📉 *Parcela final estimada:* ${fmt(s.parcelaFinal)}/mês\n`;
   txt += `📌 ${s.faixaLabel}\n`;
   txt += `⏳ *Prazo:* ${s.prazoAnos} anos (${s.prazoMeses} meses)\n\n`;
 
-  txt += `⚠️ *Importante:* esse resultado é calculado com base nas informações enviadas agora. `;
+  txt += `⚠️ *Importante:* esse resultado é uma estimativa calculada com base nas informações enviadas agora, sujeita à análise de perfil e aprovação bancária. `;
   txt += `As faixas e condições do programa Minha Casa Minha Vida são revisadas periodicamente pela Caixa, então essa condição pode mudar.\n\n`;
 
-  txt += `🔥 Essa casa é a única unidade disponível com essas características nessa faixa de entrada. `;
-  txt += `Recomendo agendar a visita o quanto antes pra garantir que ela ainda esteja disponível quando você decidir.\n\n`;
+  txt += `🏡 Recomendo agendar a visita o quanto antes, já que a disponibilidade da unidade pode mudar.\n\n`;
 
-  txt += `🔎 A aprovação final ainda depende da análise de crédito do banco (score, compromissos financeiros e documentação apresentada).`;
-  if (s.fgts > 0) txt += ` O FGTS de ${fmt(s.fgts)} pode ser usado para reduzir a entrada.`;
+  txt += `🔎 A aprovação final e os valores definitivos dependem da análise de crédito do banco (score, compromissos financeiros e documentação apresentada).`;
+  if (s.fgts > 0) txt += ` O FGTS de ${fmt(s.fgts)} pode ser usado para reduzir a entrada, sujeito às regras vigentes.`;
   txt += `\n\n`;
 
   txt += `Quer marcar sua visita agora? Em 1 minuto você escolhe o melhor dia 👇\n`;

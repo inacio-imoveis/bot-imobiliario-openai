@@ -1,6 +1,7 @@
 export const catalog = [
   {
     nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão",
+    status: "disponivel",
     quartos: 3,
     bairro: "Goiânia/GO, próxima à Maternidade Nascer Cidadão",
     referencia: "Próxima à Maternidade Nascer Cidadão",
@@ -20,6 +21,7 @@ export const catalog = [
   },
   {
     nome: "Casa 2 Quartos — Setor Della Penna",
+    status: "disponivel",
     quartos: 2,
     bairro: "Setor Della Penna, Região da Eternit, Goiânia/GO",
     referencia: "Região da Eternit",
@@ -55,6 +57,7 @@ export const catalog = [
   },
   {
     nome: "Casa 2 Quartos — Setor das Nações",
+    status: "disponivel",
     quartos: 2,
     bairro: "Setor das Nações, Goiânia/GO",
     referencia: "A 10 min do Shopping Cidade Jardim",
@@ -66,6 +69,7 @@ export const catalog = [
   },
   {
     nome: "Casa 3 Quartos — Pilar dos Sonhos (Região Noroeste)",
+    status: "disponivel",
     quartos: 3,
     bairro: "Pilar dos Sonhos, Região Noroeste, Goiânia/GO",
     referencia: "Ao lado do Supermercado Atacadão, 5 min do Portal Shopping",
@@ -94,6 +98,7 @@ export const catalog = [
   },
   {
     nome: "Casa 2 Quartos — Setor Santa Fé",
+    status: "disponivel",
     quartos: 2,
     bairro: "Setor Santa Fé, Goiânia/GO",
     referencia: "Próxima ao Moinho dos Ventos",
@@ -105,6 +110,7 @@ export const catalog = [
   },
   {
     nome: "Casa 2 Quartos — Botânico",
+    status: "disponivel",
     quartos: 2,
     bairro: "Setor Botânico, Goiânia/GO",
     referencia: "A 9 min do Shopping Plaza D'Oro",

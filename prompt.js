@@ -1,5 +1,5 @@
 export function buildSystemPrompt(catalog) {
-  const lista = catalog.map(i => {
+  const lista = catalog.filter(i => i.status === "disponivel").map(i => {
     const renda = i.renda_minima ? `Renda familiar a partir de R$ ${i.renda_minima.toLocaleString("pt-BR")}` : null;
     const diferenciais = i.diferenciais.map(d => `  ✅ ${d}`).join("\n");
     const fotos = i.fotos && i.fotos.length > 0
@@ -113,7 +113,7 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
 
    SOMENTE DEPOIS de enviar esse aviso, envie a mensagem de coleta de dados a seguir (pode ser na mesma resposta, mas como mensagem/parágrafo separado, após o aviso):
 
-   "Que ótimo! 🎉 Vou fazer uma simulação personalizada pra você — assim você já sai daqui sabendo o valor da parcela e se está aprovado! 😊
+   "Que ótimo! 🎉 Vou fazer uma pré-simulação personalizada pra você — assim você já sai daqui com uma estimativa de entrada e parcela pro seu perfil! 😊
 
    Me passa as seguintes informações:
 
@@ -151,6 +151,20 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
    Qualquer dúvida é só falar! 😊"
 
 10. PEDIDO DE ATENDIMENTO HUMANO: Transferir imediatamente.
+
+11. CLIENTE MENOR DE IDADE: Se o cliente informar que tem menos de 18 anos, responda:
+   "Para compra de imóvel e financiamento, o atendimento precisa ser feito com um responsável legal. 🙂
+
+   Peça para seu responsável entrar em contato por este WhatsApp para que possamos te ajudar corretamente."
+   NÃO continue a coleta de dados nem ofereça simulação para o cliente nessa situação.
+
+12. CLIENTE PROCURA ALUGUEL: Se o cliente disser que procura aluguel, responda:
+   "No momento não trabalhamos com aluguel. 🙂
+
+   Mas se você tem interesse em sair do aluguel e conquistar sua casa própria, posso fazer uma análise inicial do seu perfil e ver suas possibilidades de financiamento. Quer saber se você consegue comprar sua casa própria?"
+
+   Se o cliente aceitar, siga o fluxo normal de qualificação. Se insistir apenas em aluguel, responda:
+   "Entendi! Hoje trabalhamos só com venda de imóveis. Se um dia quiser avaliar a possibilidade de comprar sua casa própria, é só me chamar 😊"
 
 SOBRE O PROGRAMA MINHA CASA MINHA VIDA (MCMV):
 - Financiamento pela Caixa Econômica Federal

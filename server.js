@@ -2,7 +2,7 @@ import express from "express";
 import { readFileSync } from "fs";
 import OpenAI from "openai";
 import { catalog } from "./imoveis.js";
-import { imoveisSimulacao, simular, formatarSimulacao } from "./simulador.js";
+import { imoveisSimulacao, simular, formatarSimulacao, LINK_AGENDA } from "./simulador.js";
 import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
@@ -334,230 +334,227 @@ function bufferMessage(phone, text) {
 async function handleMessage(phone, userText) {
   console.log(`[${phone}] → ${userText}`);
 
-    await logMensagem(phone, "cliente", userText);
+  await logMensagem(phone, "cliente", userText);
 
-    const session = sessionManager.get(phone);
+  const session = sessionManager.get(phone);
 
-    // Sessão nova em memória (ex: após restart/redeploy) — recupera estado salvo no banco
-    if (!session._hydrated) {
-      await hydrateSession(phone, session);
+  // Sessão nova em memória (ex: após restart/redeploy) — recupera estado salvo no banco
+  if (!session._hydrated) {
+    await hydrateSession(phone, session);
+  }
+
+  if (session.isWaitingForHuman()) {
+    console.log(`[${phone}] Em espera de atendente — bot pausado.`);
+    return;
+  }
+
+  session.addMessage("user", userText);
+
+  // Cliente demonstrou interesse em OUTRO imóvel depois de já ter passado pelo
+  // ciclo de simulação/alerta — reabre o ciclo pra esse novo imóvel
+  if (session.handoffAlertaEnviado) {
+    const novoKey = extractLeadFromHistory([{ role: "user", content: userText }]).imovelKey;
+    if (novoKey && novoKey !== session.handoffImovelKey) {
+      console.log(`[${phone}] 🔄 Novo interesse detectado (${novoKey}) — reabrindo ciclo de simulação/alerta.`);
+      session.handoffAlertaEnviado = false;
+      session.simulacaoEnviada = false;
+      session.handoffImovelKey = null;
+      session.extractAttemptsAfterHandoff = 0;
+      session.leadData.imovelKey = novoKey;
     }
+  }
 
-    if (session.isWaitingForHuman()) {
-      console.log(`[${phone}] Em espera de atendente — bot pausado.`);
-      return;
-    }
+  // Handoff manual
+  const handoffRequest = detectHandoffTrigger(userText);
+  if (handoffRequest) {
+    session.setWaitingForHuman(true);
+    await saveSession(phone, session);
+    const msg = "Entendido! 🙋 Vou chamar um consultor agora. Aguarde um momento.";
+    await sendWhatsAppMessage(phone, msg);
+    await logMensagem(phone, "bot", msg);
+    const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
+    if (TEAM_NUMBER) await sendWhatsAppMessage(TEAM_NUMBER, formatHandoffAlert(phone, session, handoffRequest));
+    return;
+  }
 
-    session.addMessage("user", userText);
-
-    // Cliente demonstrou interesse em OUTRO imóvel depois de já ter passado pelo
-    // ciclo de simulação/alerta — reabre o ciclo pra esse novo imóvel
-    if (session.handoffAlertaEnviado) {
-      const novoKey = extractLeadFromHistory([{ role: "user", content: userText }]).imovelKey;
-      if (novoKey && novoKey !== session.handoffImovelKey) {
-        console.log(`[${phone}] 🔄 Novo interesse detectado (${novoKey}) — reabrindo ciclo de simulação/alerta.`);
-        session.handoffAlertaEnviado = false;
-        session.simulacaoEnviada = false;
-        session.handoffImovelKey = null;
-        session.extractAttemptsAfterHandoff = 0;
-        session.leadData.imovelKey = novoKey;
-      }
-    }
-
-    // Handoff manual
-    const handoffRequest = detectHandoffTrigger(userText);
-    if (handoffRequest) {
-      session.setWaitingForHuman(true);
+  // Fotos
+  let imovelComFotos = null;
+  if (session.awaitingPhotoChoice) {
+    const found = findImovelByText(userText);
+    if (found) {
+      session.awaitingPhotoChoice = false;
+      session.photoChoiceAttempts = 0;
+      imovelComFotos = found;
       await saveSession(phone, session);
-      const msg = "Entendido! 🙋 Vou chamar um consultor agora. Aguarde um momento.";
-      await sendWhatsAppMessage(phone, msg);
-      await logMensagem(phone, "bot", msg);
-      const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
-      if (TEAM_NUMBER) await sendWhatsAppMessage(TEAM_NUMBER, formatHandoffAlert(phone, session, handoffRequest));
-      return;
-    }
-
-    // Fotos
-    let imovelComFotos = null;
-    if (session.awaitingPhotoChoice) {
-      const found = findImovelByText(userText);
-      if (found) {
-        session.awaitingPhotoChoice = false;
-        session.photoChoiceAttempts = 0;
-        imovelComFotos = found;
-        await saveSession(phone, session);
-      } else {
-        // Não reconheceu o imóvel — pergunta de novo (até 2x), depois cai no fluxo normal da IA
-        session.photoChoiceAttempts = (session.photoChoiceAttempts || 0) + 1;
-        if (session.photoChoiceAttempts <= 2) {
-          const nomes = catalog.filter(i => i.fotos?.length > 0).map(i => `• ${i.nome}`).join("\n");
-          const msgAsk = `Não encontrei esse imóvel na nossa lista 🙏 Pode me dizer o nome certinho?\n\n${nomes}`;
-          await sendWhatsAppMessage(phone, msgAsk);
-          await logMensagem(phone, "bot", msgAsk);
-          session.addMessage("assistant", msgAsk);
-          await saveSession(phone, session);
-          return;
-        } else {
-          session.awaitingPhotoChoice = false;
-          session.photoChoiceAttempts = 0;
-          await saveSession(phone, session);
-        }
-      }
-    }
-    if (!imovelComFotos) imovelComFotos = detectPhotoRequest(userText);
-
-    // Cliente respondeu "quero"/"sim"/etc a uma oferta de fotos da Ana (sem repetir "foto")
-    if (!imovelComFotos && isAffirmativeReply(userText)) {
-      const lastBot = [...session.getHistory()].reverse().find(m => m.role === "assistant");
-      if (lastBot && ofereceuFotos(lastBot.content)) {
-        const doTexto = findImovelByText(lastBot.content);
-        const leadData = extractLeadFromHistory(session.getHistory());
-        const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
-        imovelComFotos = doTexto || doHistorico || "ASK";
-      }
-    }
-
-    if (imovelComFotos === "ASK") {
-      // Tentar usar o imóvel já mencionado na conversa
-      const leadData = extractLeadFromHistory(session.getHistory());
-      const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
-      if (doHistorico) {
-        imovelComFotos = doHistorico;
-      } else {
+    } else {
+      // Não reconheceu o imóvel — pergunta de novo (até 2x), depois cai no fluxo normal da IA
+      session.photoChoiceAttempts = (session.photoChoiceAttempts || 0) + 1;
+      if (session.photoChoiceAttempts <= 2) {
         const nomes = catalog.filter(i => i.fotos?.length > 0).map(i => `• ${i.nome}`).join("\n");
-        const msgAsk = `De qual imóvel você quer ver as fotos? 😊\n\n${nomes}`;
+        const msgAsk = `Não encontrei esse imóvel na nossa lista 🙏 Pode me dizer o nome certinho?\n\n${nomes}`;
         await sendWhatsAppMessage(phone, msgAsk);
         await logMensagem(phone, "bot", msgAsk);
         session.addMessage("assistant", msgAsk);
-        session.awaitingPhotoChoice = true;
         await saveSession(phone, session);
         return;
+      } else {
+        session.awaitingPhotoChoice = false;
+        session.photoChoiceAttempts = 0;
+        await saveSession(phone, session);
       }
     }
-    if (imovelComFotos) {
-      if (imovelComFotos.fotos?.length > 0) {
-        const msg1 = `📸 Veja as fotos do *${imovelComFotos.nome}*:`;
-        await sendWhatsAppMessage(phone, msg1);
-        await logMensagem(phone, "bot", msg1);
-        for (const foto of imovelComFotos.fotos) {
-          await sendWhatsAppImage(phone, foto);
-          await new Promise(r => setTimeout(r, 800));
-        }
-        const msg2 = `Gostou? 😍 Veja mais no nosso site e siga nosso instagram:\n🔗 https://ricardoinacioimoveis.com.br/#imoveis @ricardoinacioimoveis\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠`;
-        await sendWhatsAppMessage(phone, msg2);
-        await logMensagem(phone, "bot", msg2);
-        session.addMessage("assistant", `[Enviou ${imovelComFotos.fotos.length} fotos do ${imovelComFotos.nome}]`);
-      } else {
-        const msg = `Ainda não tenho fotos disponíveis, mas você pode ver no nosso site 👇\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita! 🏠😊`;
-        await sendWhatsAppMessage(phone, msg);
-        await logMensagem(phone, "bot", msg);
-        session.addMessage("assistant", `[Sem fotos do ${imovelComFotos.nome}]`);
-      }
+  }
+  if (!imovelComFotos) imovelComFotos = detectPhotoRequest(userText);
+
+  // Cliente respondeu "quero"/"sim"/etc a uma oferta de fotos da Ana (sem repetir "foto")
+  if (!imovelComFotos && isAffirmativeReply(userText)) {
+    const lastBot = [...session.getHistory()].reverse().find(m => m.role === "assistant");
+    if (lastBot && ofereceuFotos(lastBot.content)) {
+      const doTexto = findImovelByText(lastBot.content);
+      const leadData = extractLeadFromHistory(session.getHistory());
+      const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
+      imovelComFotos = doTexto || doHistorico || "ASK";
+    }
+  }
+
+  if (imovelComFotos === "ASK") {
+    // Tentar usar o imóvel já mencionado na conversa
+    const leadData = extractLeadFromHistory(session.getHistory());
+    const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
+    if (doHistorico) {
+      imovelComFotos = doHistorico;
+    } else {
+      const nomes = catalog.filter(i => i.fotos?.length > 0).map(i => `• ${i.nome}`).join("\n");
+      const msgAsk = `De qual imóvel você quer ver as fotos? 😊\n\n${nomes}`;
+      await sendWhatsAppMessage(phone, msgAsk);
+      await logMensagem(phone, "bot", msgAsk);
+      session.addMessage("assistant", msgAsk);
+      session.awaitingPhotoChoice = true;
       await saveSession(phone, session);
-      await upsertLead(phone, { imovel_interesse: imovelComFotos.nome });
       return;
     }
-
-    // Resposta da IA
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 1000,
-      messages: [
-        { role: "system", content: buildSystemPrompt(catalog) },
-        ...session.getHistory()
-      ],
-    });
-
-    const reply = response.choices[0].message.content;
-    session.addMessage("assistant", reply);
+  }
+  if (imovelComFotos) {
+    if (imovelComFotos.fotos?.length > 0) {
+      const msg1 = `📸 Veja as fotos do *${imovelComFotos.nome}*:`;
+      await sendWhatsAppMessage(phone, msg1);
+      await logMensagem(phone, "bot", msg1);
+      for (const foto of imovelComFotos.fotos) {
+        await sendWhatsAppImage(phone, foto);
+        await new Promise(r => setTimeout(r, 800));
+      }
+      const msg2 = `Gostou? 😍 Veja mais no nosso site e siga nosso instagram:\n🔗 https://ricardoinacioimoveis.com.br/#imoveis @ricardoinacioimoveis\nOu posso agendar uma visita pra você conhecer pessoalmente! 🏠`;
+      await sendWhatsAppMessage(phone, msg2);
+      await logMensagem(phone, "bot", msg2);
+      session.addMessage("assistant", `[Enviou ${imovelComFotos.fotos.length} fotos do ${imovelComFotos.nome}]`);
+    } else {
+      const msg = `Ainda não tenho fotos disponíveis, mas você pode ver no nosso site 👇\n🔗 https://ricardoinacioimoveis.com.br/#imoveis\n\nOu posso agendar uma visita! 🏠😊`;
+      await sendWhatsAppMessage(phone, msg);
+      await logMensagem(phone, "bot", msg);
+      session.addMessage("assistant", `[Sem fotos do ${imovelComFotos.nome}]`);
+    }
     await saveSession(phone, session);
+    await upsertLead(phone, { imovel_interesse: imovelComFotos.nome });
+    return;
+  }
 
-    await sendWhatsAppMessage(phone, reply);
-    await logMensagem(phone, "bot", reply);
+  // Resposta da IA
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 1000,
+    messages: [
+      { role: "system", content: buildSystemPrompt(catalog) },
+      ...session.getHistory()
+    ],
+  });
 
-    // ── EXTRAÇÃO DE LEAD + SIMULAÇÃO AUTOMÁTICA ──────────────────────────────
-    // Detecta se a IA acabou de coletar (ou tentou coletar) todos os dados
-    const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||
-                         reply.toLowerCase().includes("aguarde") ||
-                         reply.toLowerCase().includes("alguns instantes") ||
-                         reply.toLowerCase().includes("nossa equipe vai retornar");
+  const reply = response.choices[0].message.content;
+  session.addMessage("assistant", reply);
+  await saveSession(phone, session);
 
-    // Só processa enquanto ainda houver algo pendente (simulação e/ou alerta da equipe).
-    // Depois que ambos acontecerem uma vez, não roda mais nada aqui — evita loop e custo extra de IA.
-    const MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF = 3;
-    const presoAposHandoff = session.handoffAlertaEnviado && !session.simulacaoEnviada;
-    const limiteAtingido = presoAposHandoff && session.extractAttemptsAfterHandoff >= MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF;
+  await sendWhatsAppMessage(phone, reply);
+  await logMensagem(phone, "bot", reply);
 
-    // Lead "preso" sem dado completo (nunca chegou no handoff): o histórico é truncado em
-    // 20 mensagens, então depois de ~10 trocas sem progresso o tamanho fica estável em 20.
-    // Se já extraímos com esse mesmo tamanho de histórico e nada mudou, não vale repetir a
-    // chamada de IA — evita custo extra sem novidade.
-    const historicoMudou = session.getHistory().length !== session.lastExtractLen;
+  // ── EXTRAÇÃO DE LEAD + SIMULAÇÃO AUTOMÁTICA ──────────────────────────────
+  // Detecta se a IA acabou de coletar (ou tentou coletar) todos os dados
+  const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||
+                       reply.toLowerCase().includes("aguarde") ||
+                       reply.toLowerCase().includes("alguns instantes") ||
+                       reply.toLowerCase().includes("nossa equipe vai retornar");
 
-    if ((!session.simulacaoEnviada || !session.handoffAlertaEnviado) && !limiteAtingido && historicoMudou) {
-      // Atualiza os dados do lead de forma incremental (sobrevive ao corte do histórico)
-      session.leadData = await extractLeadComIA(openai, session.getHistory(), session.leadData);
-      session.lastExtractLen = session.getHistory().length;
-      salvarLead(phone, session.leadData);
-      if (presoAposHandoff) session.extractAttemptsAfterHandoff += 1;
+  // Só processa enquanto ainda houver algo pendente (simulação e/ou alerta da equipe).
+  // Depois que ambos acontecerem uma vez, não roda mais nada aqui — evita loop e custo extra de IA.
+  const MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF = 3;
+  const presoAposHandoff = session.handoffAlertaEnviado && !session.simulacaoEnviada;
+  const limiteAtingido = presoAposHandoff && session.extractAttemptsAfterHandoff >= MAX_EXTRACT_ATTEMPTS_AFTER_HANDOFF;
 
-      // 1) Assim que houver dados suficientes, dispara a simulação — somente UMA vez por sessão
-      if (!session.simulacaoEnviada && podeSimular(session.leadData)) {
-        console.log(`[${phone}] 🧮 Calculando simulação automática...`, session.leadData);
-        await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
+  // Lead "preso" sem dado completo (nunca chegou no handoff): o histórico é truncado em
+  // 20 mensagens, então depois de ~10 trocas sem progresso o tamanho fica estável em 20.
+  // Se já extraímos com esse mesmo tamanho de histórico e nada mudou, não vale repetir a
+  // chamada de IA — evita custo extra sem novidade.
+  const historicoMudou = session.getHistory().length !== session.lastExtractLen;
 
-        try {
-          const resultado = simular({
-            renda: session.leadData.renda,
-            cotista: session.leadData.cotista || false,
-            comDependente: session.leadData.comDependente || false,
-            idade: session.leadData.idade || 35,
-            fgts: 0,
-            imovelKey: session.leadData.imovelKey,
-          });
+  if ((!session.simulacaoEnviada || !session.handoffAlertaEnviado) && !limiteAtingido && historicoMudou) {
+    // Atualiza os dados do lead de forma incremental (sobrevive ao corte do histórico)
+    session.leadData = await extractLeadComIA(openai, session.getHistory(), session.leadData);
+    session.lastExtractLen = session.getHistory().length;
+    salvarLead(phone, session.leadData);
+    if (presoAposHandoff) session.extractAttemptsAfterHandoff += 1;
 
-          const textoSim = formatarSimulacao(resultado, session.leadData.nome || "");
-          await sendWhatsAppMessage(phone, textoSim);
-          await logMensagem(phone, "bot", textoSim);
-          session.addMessage("assistant", "[Simulação enviada automaticamente]");
-          session.simulacaoEnviada = true;
-          await upsertLead(phone, { agendou: true });
-          await marcarSimulacaoEnviadaTimestamp(phone);
-        } catch (simErr) {
-          console.error(`[${phone}] Erro na simulação:`, simErr.message);
-        }
+    // 1) Assim que houver dados suficientes, dispara a simulação — somente UMA vez por sessão
+    if (!session.simulacaoEnviada && podeSimular(session.leadData)) {
+      console.log(`[${phone}] 🧮 Calculando simulação automática...`, session.leadData);
+      await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
+
+      try {
+        const resultado = simular({
+          renda: session.leadData.renda,
+          cotista: session.leadData.cotista || false,
+          comDependente: session.leadData.comDependente || false,
+          idade: session.leadData.idade || 35,
+          fgts: 0,
+          imovelKey: session.leadData.imovelKey,
+        });
+
+        const textoSim = formatarSimulacao(resultado, session.leadData.nome || "");
+        await sendWhatsAppMessage(phone, textoSim);
+        await logMensagem(phone, "bot", textoSim);
+        session.addMessage("assistant", "[Simulação enviada automaticamente]");
+        session.simulacaoEnviada = true;
+        await upsertLead(phone, { agendou: true });
+        await marcarSimulacaoEnviadaTimestamp(phone);
+      } catch (simErr) {
+        console.error(`[${phone}] Erro na simulação:`, simErr.message);
       }
-
-      // 2) Quando a IA sinaliza que terminou a coleta, fecha o ciclo — UMA vez por sessão,
-      //    mesmo que a IA repita "anotei tudo"/"aguarde" em mensagens seguintes.
-      if (frasesColeta && !session.handoffAlertaEnviado) {
-        const faltando = camposFaltantes(session.leadData);
-
-        if (!session.simulacaoEnviada) {
-          // Dados insuficientes para simular — avisa o cliente em vez de deixá-lo sem resposta
-          const msgFallback = "Só um instante — vou confirmar alguns dados com nossa equipe e já te retorno com a simulação completa por aqui mesmo! 😊";
-          await sendWhatsAppMessage(phone, msgFallback);
-          await logMensagem(phone, "bot", msgFallback);
-          session.addMessage("assistant", msgFallback);
-        }
-
-        session.setWaitingForHuman(true);
-        session.handoffAlertaEnviado = true;
-        session.handoffImovelKey = session.leadData.imovelKey || null;
-
-        const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
-        if (TEAM_NUMBER) {
-          const alertMsg = formatLeadAlert(phone, session, { simulado: session.simulacaoEnviada, faltando });
-          await sendWhatsAppMessage(TEAM_NUMBER, alertMsg);
-        }
-      }
-
-      await saveSession(phone, session);
     }
 
+    // 2) Quando a IA sinaliza que terminou a coleta, fecha o ciclo — UMA vez por sessão,
+    //    mesmo que a IA repita "anotei tudo"/"aguarde" em mensagens seguintes.
+    if (frasesColeta && !session.handoffAlertaEnviado) {
+      const faltando = camposFaltantes(session.leadData);
+
+      if (!session.simulacaoEnviada) {
+        // Dados insuficientes para simular — avisa o cliente em vez de deixá-lo sem resposta
+        const msgFallback = "Só um instante — vou confirmar alguns dados com nossa equipe e já te retorno com a simulação completa por aqui mesmo! 😊";
+        await sendWhatsAppMessage(phone, msgFallback);
+        await logMensagem(phone, "bot", msgFallback);
+        session.addMessage("assistant", msgFallback);
+      }
+
+      session.setWaitingForHuman(true);
+      session.handoffAlertaEnviado = true;
+      session.handoffImovelKey = session.leadData.imovelKey || null;
+
+      const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
+      if (TEAM_NUMBER) {
+        const alertMsg = formatLeadAlert(phone, session, { simulado: session.simulacaoEnviada, faltando });
+        await sendWhatsAppMessage(TEAM_NUMBER, alertMsg);
+      }
+    }
+
+    await saveSession(phone, session);
+  }
 }
-
-
 
 // ── ENDPOINTS ─────────────────────────────────────────────────────────────────
 
@@ -622,14 +619,14 @@ function buildFollowup1(nome, imovel) {
   return `Oi ${primeiroNome}! Passando aqui rapidinho 😊\n\n` +
     `Vi que você recebeu a simulação da *${imovel}* — ficou alguma dúvida sobre os valores ou sobre a forma de pagamento?\n\n` +
     `Essa é uma casa pronta e única no nosso catálogo, não queria que você perdesse a chance por falta de informação. Posso te ajudar a agendar a visita agora? 📅\n` +
-    `https://calendar.app.google/SZ4oVatsSY8AiVGV7`;
+    `${LINK_AGENDA}`;
 }
 
 function buildFollowup2(nome, imovel) {
   const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
   return `${primeiroNome}, só um aviso: temos tido bastante procura pela *${imovel}* essa semana.\n\n` +
     `Como ela é uma unidade só (não tem outra igual disponível), se você ainda tem interesse, recomendo agendar a visita hoje pra garantir prioridade.\n\n` +
-    `📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7\n\n` +
+    `📅 ${LINK_AGENDA}\n\n` +
     `Se preferir, me diga e posso te mostrar outras opções parecidas! 😊`;
 }
 
@@ -637,13 +634,13 @@ function buildFollowup3(nome, imovel) {
   const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
   return `Oi ${primeiroNome}! Faz um tempinho que conversamos sobre a *${imovel}*. 😊\n\n` +
     `Ainda tem interesse? Se mudou de ideia ou está procurando algo diferente (outro bairro, valor de entrada, número de quartos), me conta que eu te mostro outras opções do nosso catálogo.\n\n` +
-    `E se quiser seguir com essa, é só me chamar pra agendar a visita: 📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7`;
+    `E se quiser seguir com essa, é só me chamar pra agendar a visita: 📅 ${LINK_AGENDA}`;
 }
 
 function buildFollowup4(nome, imovel) {
   const primeiroNome = (nome || "").split(" ")[0] || "tudo bem";
   return `${primeiroNome}, essa é só uma última mensagem da minha parte sobre a *${imovel}*. 🙂\n\n` +
-    `Se ainda fizer sentido pra você, me chama que eu vejo a disponibilidade e agendamos a visita: 📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7\n\n` +
+    `Se ainda fizer sentido pra você, me chama que eu vejo a disponibilidade e agendamos a visita: 📅 ${LINK_AGENDA}\n\n` +
     `Se não for mais o momento, sem problema — qualquer hora que precisar de algo é só falar comigo aqui. 😊`;
 }
 

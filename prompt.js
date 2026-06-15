@@ -1,3 +1,5 @@
+import { LINK_AGENDA } from "./simulador.js";
+
 export function buildSystemPrompt(catalog) {
   const lista = catalog.filter(i => i.status === "disponivel").map(i => {
     const renda = i.renda_minima ? `Renda familiar a partir de R$ ${i.renda_minima.toLocaleString("pt-BR")}` : null;
@@ -136,7 +138,7 @@ FLUXO DE ATENDIMENTO — SIGA ESTA ORDEM:
    - DEPOIS que a simulação for enviada com os valores, pergunte: "Quer agendar uma visita para conhecer pessoalmente? 😊"
    - SOMENTE se o cliente aceitar a visita (após a simulação), envie o link da agenda:
    "Que ótimo! 🎉 É só escolher o melhor dia e horário aqui 👇
-   📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7
+   📅 ${LINK_AGENDA}
    Assim já fica marcado direto na nossa agenda e nosso consultor te recebe com tudo pronto! 😊🏠"
    - Você NÃO tem acesso à agenda. NUNCA confirme, sugira ou combine data e horário por conta própria (ex: "amanhã às 10h, certo?"). Se o cliente disser um horário específico, responda que vai verificar a disponibilidade e envie o link para ele confirmar na agenda.
 

@@ -5,6 +5,9 @@
  * Financiado = Avaliação Caixa × 80% | Entrada = Venda - Financiado
  */
 
+// Link único da agenda de visitas — usado em toda mensagem que oferece agendamento
+export const LINK_AGENDA = "https://calendar.app.google/SZ4oVatsSY8AiVGV7";
+
 // Catálogo interno (avaliação OCULTA para o cliente)
 export const imoveisSimulacao = {
   pilar:    { nome: "Pilar dos Sonhos", status: "disponivel", venda: 320000, avaliacao: 380000 },
@@ -164,7 +167,7 @@ export function formatarSimulacao(s, nomeCliente = "") {
   txt += `\n\n`;
 
   txt += `Quer marcar sua visita agora? Em 1 minuto você escolhe o melhor dia 👇\n`;
-  txt += `📅 https://calendar.app.google/SZ4oVatsSY8AiVGV7`;
+  txt += `📅 ${LINK_AGENDA}`;
 
   return txt;
 }

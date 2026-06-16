@@ -278,7 +278,20 @@ app.post("/webhook", async (req, res) => {
         console.log(`[${phone}] 🎙️ Transcrição: "${userText}"`);
         await sendWhatsAppMessage(phone, `🎙️ _Entendi: "${userText}"_`);
       } else {
-        userText = msg.conversation || msg.extendedTextMessage?.text || msg.text || null;
+        userText =
+          msg.conversation ||
+          msg.extendedTextMessage?.text ||
+          msg.text ||
+          // Mensagens de botão/template vindas de anúncios (Instagram/Facebook Ads)
+          msg.buttonsResponseMessage?.selectedDisplayText ||
+          msg.templateButtonReplyMessage?.selectedDisplayText ||
+          msg.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
+          msg.listResponseMessage?.title ||
+          null;
+        // Se era JSON de paramsJson, tenta extrair texto legível
+        if (userText && userText.startsWith('{')) {
+          try { const p = JSON.parse(userText); userText = p.id || p.name || p.display_text || userText; } catch {}
+        }
       }
 
       if (!userText || !phone) return;
@@ -349,6 +362,38 @@ async function handleMessage(phone, userText) {
   }
 
   session.addMessage("user", userText);
+
+  // ── GATILHO DE SAUDAÇÃO INICIAL (Regra Alessandra) ───────────────────────
+  // Se a sessão está no início (sem histórico de resposta da Ana ainda),
+  // e o cliente enviou uma saudação genérica ou frase de interesse vinda de anúncio,
+  // responde IMEDIATAMENTE com a apresentação da Ana sem passar pelo GPT.
+  // Isso garante que nenhum lead vindo de anúncio fique sem resposta.
+  const isFirstContact = session.getHistory().filter(m => m.role === "assistant").length === 0;
+  if (isFirstContact) {
+    const textLower = userText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const saudacaoKeywords = [
+      "tenho interesse", "quero mais informacoes", "gostaria de saber mais",
+      "vi o anuncio", "ainda esta disponivel", "ainda disponivel",
+      "ola", "oi", "bom dia", "boa tarde", "boa noite",
+      "quero saber", "me interessa", "gostei", "vi o anuncio",
+      "como podemos ajudar", "quero informacoes", "mais informacoes",
+      "interessado", "interessada"
+    ];
+    const isSaudacao = saudacaoKeywords.some(k => textLower.includes(k));
+    if (isSaudacao) {
+      const msgSaudacao =
+        "Olá! 😊 Seja bem-vindo(a) à Ricardo Inácio Imóveis.\n\n" +
+        "Eu sou a Ana, assistente virtual.\n\n" +
+        "Vi que você entrou em contato através de um anúncio. Para eu te ajudar melhor, qual é o seu nome?";
+      await sendWhatsAppMessage(phone, msgSaudacao);
+      await logMensagem(phone, "bot", msgSaudacao);
+      session.addMessage("assistant", msgSaudacao);
+      await saveSession(phone, session);
+      console.log(`[${phone}] ✅ Gatilho saudação inicial disparado`);
+      return;
+    }
+  }
+  // ── FIM DO GATILHO DE SAUDAÇÃO INICIAL ───────────────────────────────────
 
   // Cliente demonstrou interesse em OUTRO imóvel depois de já ter passado pelo
   // ciclo de simulação/alerta — reabre o ciclo pra esse novo imóvel
@@ -704,4 +749,5 @@ async function runFollowupJob() {
 
 setInterval(runFollowupJob, 30 * 60 * 1000); // a cada 30 minutos
 setTimeout(runFollowupJob, 60 * 1000); // primeira execução após 1 minuto
+
 

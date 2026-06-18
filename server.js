@@ -215,7 +215,49 @@ function salvarLead(phone, data) {
   if (data.tipo) leadData.tipo_renda = data.tipo;
   if (data.imovelKey) leadData.imovel_interesse = imoveisSimulacao[data.imovelKey]?.nome;
   if (typeof data.comDependente === "boolean") leadData.dependentes = data.comDependente ? "sim" : "não";
-  if (Object.keys(leadData).length > 0) upsertLead(phone, leadData);
+  if (Object.keys(leadData).length > 0) {
+    upsertLead(phone, leadData);
+    // Sincronizar com CRM sempre que tiver nome
+    if (data.nome) enviarLeadAoCRM(phone, data).catch(e => console.error("[CRM]", e.message));
+  }
+}
+
+
+// CRM — envia lead ao CRM imobiliário quando tiver nome + telefone
+async function enviarLeadAoCRM(phone, leadData) {
+  try {
+    const CRM_URL = process.env.CRM_URL || "https://crm-imobiliario-production-90ec.up.railway.app";
+    const nome = leadData.nome;
+    if (!nome) return; // sem nome não envia
+    // Formatar telefone: remover o "55" do prefixo brasileiro para exibição
+    const foneDisplay = phone.replace(/^55/, "");
+    const imovelNome = leadData.imovelKey
+      ? (imoveisSimulacao[leadData.imovelKey]?.nome || leadData.imovelKey)
+      : null;
+    const obs = [
+      leadData.renda ? `Renda: R$ ${Number(leadData.renda).toLocaleString("pt-BR")}` : null,
+      leadData.tipo   ? `Tipo renda: ${leadData.tipo}` : null,
+      leadData.comDependente !== undefined ? `Dependentes: ${leadData.comDependente ? "sim" : "não"}` : null,
+      "Origem: WhatsApp Bot Ana"
+    ].filter(Boolean).join(" | ");
+
+    const payload = {
+      nome,
+      fone: foneDisplay,
+      imovel: imovelNome || "Não informado",
+      observacoes: obs
+    };
+
+    const resp = await fetch(`${CRM_URL}/api/leads/publico`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    console.log(`[CRM] Lead enviado: ${nome} (${foneDisplay}) →`, JSON.stringify(data));
+  } catch (e) {
+    console.error("[CRM] Erro ao enviar lead:", e.message);
+  }
 }
 
 // ── ÁUDIO ────────────────────────────────────────────────────────────────────
@@ -589,6 +631,9 @@ async function handleMessage(phone, userText) {
       session.setWaitingForHuman(true);
       session.handoffAlertaEnviado = true;
       session.handoffImovelKey = session.leadData.imovelKey || null;
+
+      // Enviar lead ao CRM quando qualificado
+      enviarLeadAoCRM(phone, session.leadData).catch(e => console.error("[CRM]", e.message));
 
       const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
       if (TEAM_NUMBER) {

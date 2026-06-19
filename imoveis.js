@@ -137,6 +137,14 @@ export const catalog = [
     renda_minima: 7000,
     descricao: "Casa 3 quartos, sendo 1 suíte. Última unidade disponível. Excelente localização, a 12 min do Shopping Plaza D'Oro.",
     diferenciais: ["3 quartos, sendo 1 suíte", "Excelente localização", "A 12 min do Shopping Plaza D'Oro", "Última unidade disponível"],
-    fotos: []
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-5.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-6.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-7.jpeg"
+    ]
   },
 ];

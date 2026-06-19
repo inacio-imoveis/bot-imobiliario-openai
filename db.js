@@ -45,6 +45,35 @@ export async function initDB() {
     await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup2_enviado BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup3_enviado BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup4_enviado BOOLEAN DEFAULT FALSE;`);
+    // Base de FAQ curada manualmente: a Ana consulta isso ANTES de responder.
+    // embedding fica como JSONB (array de floats) — sem pgvector por enquanto,
+    // similaridade é calculada em Node (ver buscarFaqSimilar). Dá pra migrar
+    // pra pgvector depois trocando só a query de busca.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS faq_base (
+        id SERIAL PRIMARY KEY,
+        pergunta TEXT NOT NULL,
+        resposta TEXT NOT NULL,
+        categoria VARCHAR(100),
+        embedding JSONB,
+        ativo BOOLEAN DEFAULT TRUE,
+        criado_em TIMESTAMP DEFAULT NOW(),
+        atualizado_em TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    // Rastro de uso: toda vez que uma FAQ é considerada "match" pra responder
+    // um lead, registra aqui — com o score, pra você auditar e calibrar o
+    // threshold com dados reais (não só palpite).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS faq_uso (
+        id SERIAL PRIMARY KEY,
+        faq_id INTEGER REFERENCES faq_base(id) ON DELETE SET NULL,
+        phone VARCHAR(20) NOT NULL,
+        mensagem_cliente TEXT NOT NULL,
+        score NUMERIC(5,4),
+        criado_em TIMESTAMP DEFAULT NOW()
+      );
+    `);
     console.log("✅ Banco de dados inicializado");
   } catch (err) {
     console.error("❌ Erro ao inicializar banco:", err.message);
@@ -337,4 +366,134 @@ export async function marcarFollowup4Enviado(phone) {
     console.error("Erro ao marcar follow-up 4:", err.message);
   }
 }
+
+// ── FAQ BASE (curada manualmente, consultada pela Ana antes de responder) ──
+
+// Lista todas as FAQs (pra tela de gestão em faq.html)
+export async function listarFaqs() {
+  try {
+    const res = await pool.query(
+      `SELECT id, pergunta, resposta, categoria, ativo, criado_em, atualizado_em
+       FROM faq_base ORDER BY criado_em DESC`
+    );
+    return res.rows;
+  } catch (err) {
+    console.error("Erro ao listar FAQs:", err.message);
+    return [];
+  }
+}
+
+// Cria uma FAQ nova. O embedding é calculado fora (em server.js, via OpenAI)
+// e passado já pronto, pra esta função não depender da API da OpenAI.
+export async function criarFaq({ pergunta, resposta, categoria, embedding }) {
+  try {
+    const res = await pool.query(
+      `INSERT INTO faq_base (pergunta, resposta, categoria, embedding)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [pergunta, resposta, categoria || null, JSON.stringify(embedding)]
+    );
+    return res.rows[0].id;
+  } catch (err) {
+    console.error("Erro ao criar FAQ:", err.message);
+    throw err;
+  }
+}
+
+// Atualiza pergunta/resposta/categoria/ativo de uma FAQ existente.
+// Se a pergunta mudou, o embedding novo deve ser passado também (recalculado em server.js).
+export async function atualizarFaq(id, { pergunta, resposta, categoria, ativo, embedding }) {
+  try {
+    const sets = ["pergunta = $2", "resposta = $3", "categoria = $4", "ativo = $5", "atualizado_em = NOW()"];
+    const vals = [id, pergunta, resposta, categoria || null, ativo !== false];
+    if (embedding) {
+      sets.push(`embedding = $${vals.length + 1}`);
+      vals.push(JSON.stringify(embedding));
+    }
+    await pool.query(`UPDATE faq_base SET ${sets.join(", ")} WHERE id = $1`, vals);
+  } catch (err) {
+    console.error("Erro ao atualizar FAQ:", err.message);
+    throw err;
+  }
+}
+
+export async function excluirFaq(id) {
+  try {
+    await pool.query(`DELETE FROM faq_base WHERE id = $1`, [id]);
+  } catch (err) {
+    console.error("Erro ao excluir FAQ:", err.message);
+    throw err;
+  }
+}
+
+// Registra que uma FAQ foi usada pra responder um lead — auditoria/calibração.
+export async function registrarUsoFaq({ faqId, phone, mensagemCliente, score }) {
+  try {
+    await pool.query(
+      `INSERT INTO faq_uso (faq_id, phone, mensagem_cliente, score) VALUES ($1, $2, $3, $4)`,
+      [faqId, phone, mensagemCliente, score]
+    );
+  } catch (err) {
+    console.error("Erro ao registrar uso de FAQ:", err.message);
+  }
+}
+
+// Lista os usos mais recentes, com a pergunta da FAQ — pra auditoria manual.
+export async function listarUsosFaq(limit = 100) {
+  try {
+    const res = await pool.query(
+      `SELECT u.id, u.phone, u.mensagem_cliente, u.score, u.criado_em,
+              f.pergunta AS faq_pergunta, f.id AS faq_id
+       FROM faq_uso u
+       LEFT JOIN faq_base f ON f.id = u.faq_id
+       ORDER BY u.criado_em DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return res.rows;
+  } catch (err) {
+    console.error("Erro ao listar usos de FAQ:", err.message);
+    return [];
+  }
+}
+
+// Similaridade de cosseno entre dois vetores — usado pra achar a FAQ mais
+// próxima da pergunta do lead. Sem pgvector: roda em memória no Node.
+function cosineSimilarity(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+// Busca a FAQ ativa mais parecida com o embedding da mensagem do lead.
+// Retorna null se nada passar do threshold (evita resposta forçada/errada).
+export async function buscarFaqSimilar(embeddingPergunta, threshold = 0.82) {
+  try {
+    const res = await pool.query(
+      `SELECT id, pergunta, resposta, categoria, embedding FROM faq_base WHERE ativo = TRUE`
+    );
+    let melhor = null;
+    let melhorScore = 0;
+    for (const row of res.rows) {
+      if (!row.embedding) continue;
+      const score = cosineSimilarity(embeddingPergunta, row.embedding);
+      if (score > melhorScore) {
+        melhorScore = score;
+        melhor = row;
+      }
+    }
+    if (melhor && melhorScore >= threshold) {
+      return { ...melhor, score: melhorScore };
+    }
+    return null;
+  } catch (err) {
+    console.error("Erro ao buscar FAQ similar:", err.message);
+    return null;
+  }
+}
+
 

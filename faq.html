@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base de FAQ — Ricardo Inácio Imóveis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1923; color: #e8e0d4; min-height: 100vh; padding: 16px; }
+  .header { text-align: center; padding: 22px 0 18px; }
+  .header h1 { font-size: 20px; font-weight: 800; color: #c9a84c; }
+  .header p { font-size: 11px; color: #8a8070; margin-top: 3px; }
+  .card { background: #1a2530; border-radius: 16px; padding: 20px; max-width: 640px; margin: 0 auto 16px; border: 1px solid #2a3540; }
+  .section-title { font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: #c9a84c; margin-bottom: 14px; padding-bottom: 7px; border-bottom: 1px solid #2a3540; }
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 11px; font-weight: 700; color: #8a8070; margin-bottom: 5px; }
+  input, select, textarea { width: 100%; background: #0f1923; border: 1px solid #2a3540; border-radius: 10px; padding: 11px 13px; color: #e8e0d4; font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit; -webkit-appearance: none; }
+  textarea { resize: vertical; min-height: 70px; }
+  input:focus, select:focus, textarea:focus { border-color: #c9a84c; }
+  input::placeholder, textarea::placeholder { color: #3a4550; }
+  select option { background: #1a2530; }
+
+  .btn { display: block; width: 100%; padding: 13px; border-radius: 12px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary { background: #c9a84c; color: #0f1923; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: #2a3540; color: #e8e0d4; margin-top: 8px; }
+  .btn-danger { background: transparent; color: #e05a5a; border: 1px solid #5a1010; padding: 7px 12px; font-size: 12px; width: auto; }
+  .btn-edit { background: transparent; color: #5ab4e0; border: 1px solid #1a3550; padding: 7px 12px; font-size: 12px; width: auto; }
+
+  .status { text-align: center; font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .status.ok { color: #4caf8a; }
+  .status.err { color: #e05a5a; }
+
+  .faq-item { background: #0f1923; border: 1px solid #2a3540; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .faq-item.inativo { opacity: 0.45; }
+  .faq-pergunta { font-size: 13px; font-weight: 700; color: #e8e0d4; margin-bottom: 6px; }
+  .faq-resposta { font-size: 12px; color: #a89e90; white-space: pre-wrap; margin-bottom: 8px; }
+  .faq-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .faq-cat { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #c9a84c; background: #1a1800; border: 1px solid #3a3200; padding: 2px 8px; border-radius: 20px; }
+  .faq-actions { display: flex; gap: 6px; }
+
+  .empty { text-align: center; color: #8a8070; font-size: 13px; padding: 20px 0; }
+  .loading { text-align: center; color: #8a8070; font-size: 13px; padding: 20px 0; }
+
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .toggle-row label { margin: 0; font-size: 12px; }
+
+  .nav-link { display: block; text-align: center; font-size: 12px; color: #5ab4e0; margin-bottom: 16px; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📚 Base de FAQ — Ana</h1>
+  <p>Respostas aprovadas que a Ana usa antes de improvisar</p>
+</div>
+
+<a class="nav-link" href="/painel">← Voltar para o simulador</a>
+
+<div class="card">
+  <div class="section-title" id="form-title">Nova pergunta</div>
+  <div class="field">
+    <label>Pergunta (como o cliente costuma perguntar)</label>
+    <textarea id="f-pergunta" placeholder="Ex: Posso usar o FGTS de outra pessoa da família?"></textarea>
+  </div>
+  <div class="field">
+    <label>Resposta aprovada</label>
+    <textarea id="f-resposta" placeholder="A Ana vai usar isso como base, adaptando o tom."></textarea>
+  </div>
+  <div class="field">
+    <label>Categoria (opcional)</label>
+    <input id="f-categoria" placeholder="Ex: FGTS, Documentos, Financiamento...">
+  </div>
+  <button class="btn btn-primary" id="btn-salvar" onclick="salvar()">💾 Salvar</button>
+  <button class="btn btn-secondary" id="btn-cancelar" onclick="cancelarEdicao()" style="display:none;">Cancelar edição</button>
+  <div class="status" id="form-status"></div>
+</div>
+
+<div class="card">
+  <div class="section-title">FAQs cadastradas</div>
+  <div class="toggle-row">
+    <input type="checkbox" id="mostrar-inativas" onchange="render()">
+    <label for="mostrar-inativas">Mostrar inativas</label>
+  </div>
+  <div id="lista">
+    <div class="loading">Carregando...</div>
+  </div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+let faqs = [];
+let editandoId = null;
+let perguntaOriginal = null;
+
+// Chave de admin: se o servidor tiver FAQ_ADMIN_KEY configurada, as chamadas
+// vão falhar com 401 até a chave ser informada. Pede uma vez e reaproveita
+// durante a sessão (não fica salva no navegador entre sessões).
+let chaveAdmin = new URLSearchParams(window.location.search).get("key") || "";
+
+function headersComChave() {
+  const h = { "Content-Type": "application/json" };
+  if (chaveAdmin) h["x-faq-key"] = chaveAdmin;
+  return h;
+}
+
+async function pedirChaveSeNecessario(response) {
+  if (response.status === 401) {
+    const tentativa = prompt("Acesso protegido. Informe a chave de administração:");
+    if (tentativa) {
+      chaveAdmin = tentativa;
+      return true; // sinaliza pra quem chamou tentar de novo
+    }
+  }
+  return false;
+}
+
+async function carregar() {
+  try {
+    let r = await fetch(`${BASE}/api/faq`, { headers: headersComChave() });
+    if (await pedirChaveSeNecessario(r)) {
+      r = await fetch(`${BASE}/api/faq`, { headers: headersComChave() });
+    }
+    if (!r.ok) throw new Error();
+    faqs = await r.json();
+    render();
+  } catch {
+    document.getElementById("lista").innerHTML = '<div class="empty">Erro ao carregar. Recarregue a página.</div>';
+  }
+}
+
+function render() {
+  const mostrarInativas = document.getElementById("mostrar-inativas").checked;
+  const lista = document.getElementById("lista");
+  const visiveis = faqs.filter(f => mostrarInativas || f.ativo);
+  if (visiveis.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhuma FAQ cadastrada ainda.</div>';
+    return;
+  }
+  lista.innerHTML = visiveis.map(f => `
+    <div class="faq-item ${f.ativo ? "" : "inativo"}">
+      <div class="faq-pergunta">${escapeHtml(f.pergunta)}</div>
+      <div class="faq-resposta">${escapeHtml(f.resposta)}</div>
+      <div class="faq-meta">
+        ${f.categoria ? `<span class="faq-cat">${escapeHtml(f.categoria)}</span>` : "<span></span>"}
+        <div class="faq-actions">
+          <button class="btn-edit" onclick="editar(${f.id})">✏️ Editar</button>
+          <button class="btn-danger" onclick="excluir(${f.id})">🗑️ Excluir</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function editar(id) {
+  const f = faqs.find(x => x.id === id);
+  if (!f) return;
+  editandoId = id;
+  perguntaOriginal = f.pergunta;
+  document.getElementById("f-pergunta").value = f.pergunta;
+  document.getElementById("f-resposta").value = f.resposta;
+  document.getElementById("f-categoria").value = f.categoria || "";
+  document.getElementById("form-title").textContent = "Editando FAQ";
+  document.getElementById("btn-cancelar").style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cancelarEdicao() {
+  editandoId = null;
+  perguntaOriginal = null;
+  document.getElementById("f-pergunta").value = "";
+  document.getElementById("f-resposta").value = "";
+  document.getElementById("f-categoria").value = "";
+  document.getElementById("form-title").textContent = "Nova pergunta";
+  document.getElementById("btn-cancelar").style.display = "none";
+}
+
+async function salvar() {
+  const pergunta = document.getElementById("f-pergunta").value.trim();
+  const resposta = document.getElementById("f-resposta").value.trim();
+  const categoria = document.getElementById("f-categoria").value.trim();
+  const statusEl = document.getElementById("form-status");
+  if (!pergunta || !resposta) {
+    statusEl.textContent = "⚠️ Preencha pergunta e resposta.";
+    statusEl.className = "status err";
+    return;
+  }
+  const btn = document.getElementById("btn-salvar");
+  btn.disabled = true;
+  btn.textContent = "Salvando...";
+  try {
+    const fazerRequisicao = () => {
+      if (editandoId) {
+        const perguntaMudou = pergunta !== perguntaOriginal;
+        return fetch(`${BASE}/api/faq/${editandoId}`, {
+          method: "PUT",
+          headers: headersComChave(),
+          body: JSON.stringify({ pergunta, resposta, categoria, ativo: true, perguntaMudou })
+        });
+      }
+      return fetch(`${BASE}/api/faq`, {
+        method: "POST",
+        headers: headersComChave(),
+        body: JSON.stringify({ pergunta, resposta, categoria })
+      });
+    };
+    let r = await fazerRequisicao();
+    if (await pedirChaveSeNecessario(r)) r = await fazerRequisicao();
+    if (!r.ok) throw new Error();
+    statusEl.textContent = "✅ Salvo com sucesso!";
+    statusEl.className = "status ok";
+    cancelarEdicao();
+    await carregar();
+  } catch {
+    statusEl.textContent = "❌ Erro ao salvar. Tente novamente.";
+    statusEl.className = "status err";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "💾 Salvar";
+    setTimeout(() => { statusEl.textContent = ""; }, 4000);
+  }
+}
+
+async function excluir(id) {
+  if (!confirm("Excluir esta FAQ? Essa ação não pode ser desfeita.")) return;
+  try {
+    let r = await fetch(`${BASE}/api/faq/${id}`, { method: "DELETE", headers: headersComChave() });
+    if (await pedirChaveSeNecessario(r)) {
+      r = await fetch(`${BASE}/api/faq/${id}`, { method: "DELETE", headers: headersComChave() });
+    }
+    if (!r.ok) throw new Error();
+    await carregar();
+  } catch {
+    alert("Erro ao excluir. Tente novamente.");
+  }
+}
+
+carregar();
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@ import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
-import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, getLeadsParaFollowup3, getLeadsParaFollowup4, marcarFollowup1Enviado, marcarFollowup2Enviado, marcarFollowup3Enviado, marcarFollowup4Enviado } from "./db.js";
+import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, getLeadsParaFollowup3, getLeadsParaFollowup4, marcarFollowup1Enviado, marcarFollowup2Enviado, marcarFollowup3Enviado, marcarFollowup4Enviado, listarFaqs, criarFaq, atualizarFaq, excluirFaq, buscarFaqSimilar, registrarUsoFaq, listarUsosFaq } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
 import { extractLeadComIA, podeSimular, camposFaltantes } from "./leadExtractor.js";
 
@@ -15,6 +15,16 @@ const app = express();
 app.use(express.json({ limit: "50mb" }));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Gera embedding de um texto via OpenAI (usado na faq_base: cadastro e busca).
+// Modelo pequeno e barato — suficiente pra comparar perguntas curtas de FAQ.
+async function gerarEmbedding(texto) {
+  const resp = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: texto,
+  });
+  return resp.data[0].embedding;
+}
 
 initDB();
 
@@ -545,12 +555,34 @@ async function handleMessage(phone, userText) {
     return;
   }
 
+  // FAQ curada: busca se a última mensagem do cliente bate com alguma
+  // pergunta já aprovada por você. Se bater, a resposta vira contexto
+  // prioritário pra Ana — ela ainda escreve com o próprio tom, mas a
+  // informação vem da base aprovada, não inventada.
+  let faqContext = "";
+  try {
+    const embeddingPergunta = await gerarEmbedding(userText);
+    const faqEncontrada = await buscarFaqSimilar(embeddingPergunta);
+    if (faqEncontrada) {
+      faqContext = `\n\nINFORMAÇÃO APROVADA PARA ESTA PERGUNTA (use como base, adapte o tom mas não mude o conteúdo):\n"${faqEncontrada.resposta}"`;
+      // Não bloqueia a resposta se o log falhar — é auditoria, não crítico.
+      registrarUsoFaq({
+        faqId: faqEncontrada.id,
+        phone,
+        mensagemCliente: userText,
+        score: faqEncontrada.score,
+      }).catch(err => console.error("Erro ao registrar uso de FAQ:", err.message));
+    }
+  } catch (err) {
+    console.error("Erro ao buscar FAQ (seguindo sem ela):", err.message);
+  }
+
   // Resposta da IA
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     max_tokens: 1000,
     messages: [
-      { role: "system", content: buildSystemPrompt(catalog) },
+      { role: "system", content: buildSystemPrompt(catalog) + faqContext },
       ...session.getHistory()
     ],
   });
@@ -652,6 +684,87 @@ app.get("/painel", (req, res) => {
   const html = readFileSync("./painel.html", "utf8");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(html);
+});
+
+// Protege a gestão de FAQ (página + API) com uma chave simples — porque
+// diferente de /logs (leitura), aqui dá pra EDITAR o que a Ana fala pros
+// leads. A chave vem de variável de ambiente do Railway (FAQ_ADMIN_KEY),
+// nunca hardcoded. Aceita via ?key= na URL ou header x-faq-key.
+// Se FAQ_ADMIN_KEY não estiver configurada no Railway, o acesso fica aberto
+// (mesmo padrão dos outros endpoints administrativos do projeto) — configure
+// a variável assim que possível pra ativar a proteção.
+function checarChaveFaq(req, res, next) {
+  const chaveEsperada = process.env.FAQ_ADMIN_KEY;
+  if (!chaveEsperada) return next(); // sem chave configurada, segue sem bloquear
+  const chaveRecebida = req.query.key || req.headers["x-faq-key"];
+  if (chaveRecebida !== chaveEsperada) {
+    return res.status(401).json({ error: "Acesso negado. Informe a chave correta (?key=... ou header x-faq-key)." });
+  }
+  next();
+}
+
+app.get("/faq", checarChaveFaq, (req, res) => {
+  const html = readFileSync("./faq.html", "utf8");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
+});
+
+// ── API da base de FAQ (consumida por faq.html) ─────────────────────────
+app.get("/api/faq", checarChaveFaq, async (req, res) => {
+  try {
+    res.json(await listarFaqs());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/faq", checarChaveFaq, async (req, res) => {
+  try {
+    const { pergunta, resposta, categoria } = req.body;
+    if (!pergunta || !resposta) {
+      return res.status(400).json({ error: "pergunta e resposta são obrigatórios" });
+    }
+    const embedding = await gerarEmbedding(pergunta);
+    const id = await criarFaq({ pergunta, resposta, categoria, embedding });
+    res.json({ ok: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/faq/:id", checarChaveFaq, async (req, res) => {
+  try {
+    const { pergunta, resposta, categoria, ativo, perguntaMudou } = req.body;
+    if (!pergunta || !resposta) {
+      return res.status(400).json({ error: "pergunta e resposta são obrigatórios" });
+    }
+    // Só recalcula o embedding (custo extra de API) se a pergunta de fato mudou.
+    const embedding = perguntaMudou ? await gerarEmbedding(pergunta) : null;
+    await atualizarFaq(req.params.id, { pergunta, resposta, categoria, ativo, embedding });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/faq/:id", checarChaveFaq, async (req, res) => {
+  try {
+    await excluirFaq(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auditoria: últimos casos em que uma FAQ foi usada pra responder um lead,
+// com o score de similaridade — útil pra calibrar o threshold com dados reais.
+app.get("/api/faq/uso", checarChaveFaq, async (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+    res.json(await listarUsosFaq(limit));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post("/simular/:phone", async (req, res) => {

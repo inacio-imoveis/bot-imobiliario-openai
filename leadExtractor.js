@@ -9,9 +9,22 @@ const IMOVEL_KEYS = Object.keys(imoveisSimulacao).filter(k => imoveisSimulacao[k
  */
 export async function extractLeadComIA(openai, history, dadosAtuais = {}) {
   try {
+    // IMPORTANTE: só mandamos os números/valores das falas do CLIENTE para a IA extratora.
+    // As falas da Ana frequentemente contêm valores do catálogo (ex: "Renda familiar a
+    // partir de R$ 7.000", "Entrada a partir de R$ 9.000") que NÃO são dados do cliente.
+    // Incluir o texto integral da Ana já causou o modelo confundir renda mínima do imóvel
+    // com renda pessoal do cliente. Por isso as falas da Ana entram só como rótulo de
+    // pergunta (sem números), nunca como fonte de valores.
     const conversa = history
       .filter(m => m.role === "user" || m.role === "assistant")
-      .map(m => `${m.role === "user" ? "Cliente" : "Ana"}: ${m.content}`)
+      .map(m => {
+        if (m.role === "user") return `Cliente: ${m.content}`;
+        // Mensagens da Ana: remove números para não vazar valores do catálogo (preços,
+        // rendas mínimas, entradas) para o extrator. Mantém só o texto para dar contexto
+        // de qual pergunta foi feita.
+        const semNumeros = String(m.content).replace(/[\d][\d.,]*/g, "[valor]");
+        return `Ana: ${semNumeros}`;
+      })
       .join("\n");
 
     const resp = await openai.chat.completions.create({
@@ -23,10 +36,12 @@ export async function extractLeadComIA(openai, history, dadosAtuais = {}) {
           role: "system",
           content: `Você é um extrator de dados de leads imobiliários. Analise a conversa abaixo entre a assistente Ana e um cliente, e extraia SOMENTE informações que o CLIENTE forneceu explicitamente sobre si mesmo.
 
+REGRA CRÍTICA: as falas da Ana foram higienizadas (números substituídos por "[valor]") justamente para impedir que você confunda preços, entradas ou rendas mínimas de imóveis do catálogo com dados pessoais do cliente. NUNCA extraia "renda" a partir de algo que pareça vir de uma fala da Ana — extraia "renda" apenas de números que o próprio CLIENTE escreveu sobre a renda dele.
+
 Responda APENAS com um JSON contendo os campos:
 - "nome": nome completo do cliente (string) ou null
 - "idade": idade em anos (number) ou null — se só souber o ano de nascimento, calcule (ano atual é ${new Date().getFullYear()})
-- "renda": renda mensal total do(s) comprador(es) em reais, número puro sem formatação (ex: 4500.5 -> 4500) ou null
+- "renda": renda mensal total do(s) comprador(es) em reais, número puro sem formatação (ex: 4500.5 -> 4500), extraído SOMENTE de mensagens do CLIENTE, ou null
 - "tipo": "clt", "empresa" ou "autonomo", ou null
 - "cotista": true se o cliente afirmou ter FGTS e pretende usar, false se disse que não tem ou não vai usar, null se não souber
 - "comDependente": true se o cliente mencionou ter filhos/dependentes, false se disse que não tem, null se não souber
@@ -64,9 +79,14 @@ function mergeLeadData(atual, novo) {
   return merged;
 }
 
-// Verifica se tem dados suficientes para simular
-export function podeSimular(data) {
-  return !!(data && data.renda > 0 && data.imovelKey && imoveisSimulacao[data.imovelKey] && imoveisSimulacao[data.imovelKey].status === "disponivel");
+// Verifica se tem dados suficientes para simular.
+// coletaIniciada (default true por compatibilidade) é uma trava extra: só permite
+// simulação automática se a Ana já enviou o aviso de LGPD / começou a pedir os 6 dados
+// de coleta nessa sessão. Sem isso, uma extração de IA que confunda um valor do
+// catálogo (ex: renda mínima do imóvel) com dado pessoal do cliente não consegue
+// disparar uma simulação fantasma.
+export function podeSimular(data, coletaIniciada = true) {
+  return !!(coletaIniciada && data && data.renda > 0 && data.imovelKey && imoveisSimulacao[data.imovelKey] && imoveisSimulacao[data.imovelKey].status === "disponivel");
 }
 
 // Retorna em português o que falta para simular (usado no alerta de handoff)

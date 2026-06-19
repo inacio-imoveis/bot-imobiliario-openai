@@ -28,6 +28,11 @@ class Session {
     this._hydrated = false;
     // tentativas de identificar o imóvel quando awaitingPhotoChoice está ativo
     this.photoChoiceAttempts = 0;
+    // true quando a Ana já enviou o aviso de LGPD / começou a pedir os 6 dados de coleta
+    // (item 7 do prompt). Trava de segurança: a simulação automática só pode disparar
+    // depois disso — evita que uma extração de IA confunda valor do catálogo com dado
+    // pessoal e dispare simulação sem o cliente ter informado nada.
+    this.coletaIniciada = false;
   }
 
   addMessage(role, content) {

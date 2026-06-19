@@ -186,6 +186,7 @@ async function saveSession(phone, session) {
     handoffImovelKey: session.handoffImovelKey,
     extractAttemptsAfterHandoff: session.extractAttemptsAfterHandoff,
     lastExtractLen: session.lastExtractLen,
+    coletaIniciada: session.coletaIniciada,
   });
 }
 
@@ -202,6 +203,7 @@ async function hydrateSession(phone, session) {
       session.handoffImovelKey = state.handoffImovelKey;
       session.extractAttemptsAfterHandoff = state.extractAttemptsAfterHandoff || 0;
       session.lastExtractLen = state.lastExtractLen || 0;
+      session.coletaIniciada = state.coletaIniciada || false;
     }
 
     if (session.history.length === 0) {
@@ -577,18 +579,37 @@ async function handleMessage(phone, userText) {
     console.error("Erro ao buscar FAQ (seguindo sem ela):", err.message);
   }
 
+  // Imóvel ativo da sessão: se já sabemos qual imóvel o cliente está discutindo,
+  // reforça isso explicitamente para a IA. Sem isso, uma mensagem curta e ambígua
+  // (ex: "3 quartos") pode ser interpretada como pedido de outro imóvel do catálogo,
+  // mesmo quando o cliente só está descrevendo o imóvel que já estava sendo discutido.
+  let imovelAtivoContext = "";
+  const imovelAtivo = session.leadData?.imovelKey ? findCatalogByImovelKey(session.leadData.imovelKey) : null;
+  if (imovelAtivo) {
+    imovelAtivoContext = `\n\nIMÓVEL ATIVO NESTA CONVERSA: "${imovelAtivo.nome}". O cliente já está conversando sobre esse imóvel. Se a próxima mensagem do cliente for curta, ambígua, ou puder ser uma característica/confirmação desse mesmo imóvel (ex: número de quartos, bairro, valor), trate como referência ao IMÓVEL ATIVO — não troque de imóvel sozinha. Só mude para outro imóvel do catálogo se o cliente mencionar claramente um nome, bairro ou referência diferente do imóvel ativo. Em caso de dúvida real, pergunte para confirmar em vez de assumir outro imóvel.`;
+  }
+
   // Resposta da IA
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     max_tokens: 1000,
     messages: [
-      { role: "system", content: buildSystemPrompt(catalog) + faqContext },
+      { role: "system", content: buildSystemPrompt(catalog) + faqContext + imovelAtivoContext },
       ...session.getHistory()
     ],
   });
 
   const reply = response.choices[0].message.content;
   session.addMessage("assistant", reply);
+
+  // Marca que a coleta de dados foi de fato iniciada pela Ana — usado como trava extra
+  // para a simulação automática (ver podeSimular). "LGPD" só aparece no aviso de
+  // privacidade obrigatório que precede a coleta dos 6 dados (item 7 do prompt), então é
+  // um marcador confiável de que esse fluxo realmente começou nesta conversa.
+  if (!session.coletaIniciada && reply.includes("LGPD")) {
+    session.coletaIniciada = true;
+  }
+
   await saveSession(phone, session);
 
   await sendWhatsAppMessage(phone, reply);
@@ -621,7 +642,7 @@ async function handleMessage(phone, userText) {
     if (presoAposHandoff) session.extractAttemptsAfterHandoff += 1;
 
     // 1) Assim que houver dados suficientes, dispara a simulação — somente UMA vez por sessão
-    if (!session.simulacaoEnviada && podeSimular(session.leadData)) {
+    if (!session.simulacaoEnviada && podeSimular(session.leadData, session.coletaIniciada)) {
       console.log(`[${phone}] 🧮 Calculando simulação automática...`, session.leadData);
       await new Promise(r => setTimeout(r, 2000)); // pequena pausa dramática
 

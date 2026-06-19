@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { catalog } from "./imoveis.js";
 import { imoveisSimulacao, simular, formatarSimulacao, LINK_AGENDA } from "./simulador.js";
 import { sessionManager } from "./sessions.js";
-import { sendWhatsAppMessage, sendWhatsAppImage } from "./whatsapp.js";
+import { sendWhatsAppMessage, sendWhatsAppImage, isBotMessageId, isWithinBotSendCooldown } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, getLeadsParaFollowup3, getLeadsParaFollowup4, marcarFollowup1Enviado, marcarFollowup2Enviado, marcarFollowup3Enviado, marcarFollowup4Enviado, listarFaqs, criarFaq, atualizarFaq, excluirFaq, buscarFaqSimilar, registrarUsoFaq, listarUsosFaq } from "./db.js";
@@ -310,7 +310,33 @@ app.post("/webhook", async (req, res) => {
     if (body?.event === "messages.upsert" || body?.data?.key) {
       const data = body.data || body;
       const key = data.key || {};
-      if (key.fromMe === true) return;
+
+      if (key.fromMe === true) {
+        // Toda mensagem enviada pela instância (Ana OU corretor digitando manualmente
+        // no mesmo número) chega aqui como fromMe:true. Se o id NÃO está registrado
+        // como mensagem da Ana, foi um humano que digitou direto no WhatsApp — o
+        // corretor assumiu a conversa. Pausa a Ana automaticamente pra esse contato,
+        // igual já acontece no handoff manual/automático.
+        const phoneCorretor = key.remoteJid?.replace("@s.whatsapp.net", "").replace("@g.us", "");
+        const pareceMensagemManual = !isBotMessageId(key.id) &&
+          !(phoneCorretor && isWithinBotSendCooldown(phoneCorretor)); // 2ª camada: ignora eco recente da própria Ana mesmo sem id
+        if (pareceMensagemManual) {
+          if (phoneCorretor && !key.remoteJid?.includes("@g.us")) {
+            const session = sessionManager.get(phoneCorretor);
+            // Hidrata antes de salvar — senão uma sessão nova em memória (ex: após
+            // restart) sobrescreveria leadData/flags já persistidos no banco com
+            // valores em branco.
+            if (!session._hydrated) await hydrateSession(phoneCorretor, session);
+            if (!session.isWaitingForHuman()) {
+              session.setWaitingForHuman(true);
+              await saveSession(phoneCorretor, session);
+              console.log(`[${phoneCorretor}] 🙋 Corretor assumiu a conversa manualmente — Ana pausada.`);
+            }
+          }
+        }
+        return;
+      }
+
       if (isDuplicateMessage(key.id)) {
         console.log(`[webhook] Mensagem duplicada ignorada (id: ${key.id})`);
         return;

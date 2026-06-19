@@ -1,6 +1,6 @@
 import { imoveisSimulacao } from "./simulador.js";
 
-const IMOVEL_KEYS = Object.keys(imoveisSimulacao).filter(k => imoveisSimulacao[k].status === "disponivel"); // ["pilar","botanico","della","nacoes","santafe","nascer"]
+const IMOVEL_KEYS = Object.keys(imoveisSimulacao).filter(k => imoveisSimulacao[k].status === "disponivel"); // ["pilar","botanico","della","nacoes","santafe","nascer","buenavista"]
 
 /**
  * Extrai dados do lead a partir do histórico da conversa usando IA (gpt-4o-mini),

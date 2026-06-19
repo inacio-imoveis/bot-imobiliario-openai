@@ -127,4 +127,16 @@ export const catalog = [
       "https://ricardoinacioimoveis.com.br/imagens/botanico-6.jpeg"
     ]
   },
+  {
+    nome: "Casa 3 Quartos — Setor Buena Vista",
+    status: "disponivel",
+    quartos: 3,
+    bairro: "Setor Buena Vista, Goiânia/GO",
+    referencia: "A 12 min do Shopping Plaza D'Oro",
+    entrada: 10000,
+    renda_minima: 7000,
+    descricao: "Casa 3 quartos, sendo 1 suíte. Última unidade disponível. Excelente localização, a 12 min do Shopping Plaza D'Oro.",
+    diferenciais: ["3 quartos, sendo 1 suíte", "Excelente localização", "A 12 min do Shopping Plaza D'Oro", "Última unidade disponível"],
+    fotos: []
+  },
 ];

@@ -10,12 +10,16 @@ export const LINK_AGENDA = "https://calendar.app.google/SZ4oVatsSY8AiVGV7";
 
 // Catálogo interno (avaliação OCULTA para o cliente)
 export const imoveisSimulacao = {
-  pilar:    { nome: "Pilar dos Sonhos", status: "disponivel", venda: 320000, avaliacao: 380000 },
-  botanico: { nome: "Botânico",         status: "disponivel", venda: 283000, avaliacao: 343000 },
-  della:    { nome: "Della Penna",      status: "disponivel", venda: 280000, avaliacao: 280000 },
-  nacoes:   { nome: "Setor das Nações", status: "disponivel", venda: 320000, avaliacao: 320000 },
-  santafe:  { nome: "Santa Fé",         status: "disponivel", venda: 300000, avaliacao: 343291 },
-  nascer:   { nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão", status: "disponivel", venda: 430000, avaliacao: 465000 },
+  pilar:       { nome: "Pilar dos Sonhos", status: "disponivel", venda: 320000, avaliacao: 380000 },
+  botanico:    { nome: "Botânico",         status: "disponivel", venda: 283000, avaliacao: 343000 },
+  della:       { nome: "Della Penna",      status: "disponivel", venda: 280000, avaliacao: 280000 },
+  nacoes:      { nome: "Setor das Nações", status: "disponivel", venda: 320000, avaliacao: 320000 },
+  santafe:     { nome: "Santa Fé",         status: "disponivel", venda: 300000, avaliacao: 343291 },
+  nascer:      { nome: "Casa 3 Quartos — próx. Maternidade Nascer Cidadão", status: "disponivel", venda: 430000, avaliacao: 465000 },
+  // venda calculada de forma implícita a partir da entrada anunciada (R$ 10.000):
+  // venda = financiado (avaliacao × 80%) + entrada = 280.000 + 10.000 = 290.000.
+  // avaliacao (350.000) é interna — NUNCA exibir esse valor pro cliente.
+  buenavista:  { nome: "Casa 3 Quartos — Setor Buena Vista", status: "disponivel", venda: 290000, avaliacao: 350000 },
 };
 
 // Tabela oficial de taxas por faixa de renda

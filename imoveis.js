@@ -147,4 +147,23 @@ export const catalog = [
       "https://ricardoinacioimoveis.com.br/imagens/buena-vista-7.jpeg"
     ]
   },
+  {
+    nome: "Casa 2 Quartos — Eldorado Oeste (Vera Cruz 2)",
+    status: "disponivel",
+    quartos: 2,
+    bairro: "Região do Vera Cruz 2, Setor Eldorado Oeste, Goiânia/GO",
+    referencia: "Região do Vera Cruz 2",
+    entrada: 10000,
+    renda_minima: 6000,
+    descricao: "Casa 2 quartos com 2 banheiros, cozinha americana e jardim de inverno. Localizada na região do Vera Cruz 2, Setor Eldorado Oeste.",
+    diferenciais: ["2 quartos", "2 banheiros", "Cozinha americana", "Jardim de inverno", "Garagem coberta"],
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-5.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-6.jpeg"
+    ]
+  },
 ];

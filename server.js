@@ -56,6 +56,7 @@ const PHOTO_KEYWORDS = [
   { key: "santa fe",         names: ["santa fe"] },
   { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade", "nascer"] },
   { key: "buena vista",      names: ["buena vista", "buenavista"] },
+  { key: "eldorado oeste",   names: ["eldorado oeste", "eldorado", "vera cruz", "vera cruz 2"] },
 ];
 
 // Busca imóvel do catálogo por menção no texto (sem exigir a palavra "foto")
@@ -101,6 +102,7 @@ const IMOVELKEY_TO_CATALOG = {
   santafe: "santa fe",
   nascer: "nascer cidadao",
   buenavista: "buena vista",
+  eldorado: "eldorado oeste",
 };
 function findCatalogByImovelKey(imovelKey) {
   const term = IMOVELKEY_TO_CATALOG[imovelKey];
@@ -171,6 +173,7 @@ function extractLeadFromHistory(messages) {
     santafe: ["santa fe", "santa fé"],
     nascer: ["nascer cidadao", "nascer cidadão", "maternidade", "nascer"],
     buenavista: ["buena vista", "buenavista"],
+    eldorado: ["eldorado oeste", "eldorado", "vera cruz 2", "vera cruz"],
   };
   for (const [key, terms] of Object.entries(imovelKeys)) {
     if (terms.some(t => lower.includes(t))) { data.imovelKey = key; break; }

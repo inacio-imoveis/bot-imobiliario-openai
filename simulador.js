@@ -20,6 +20,7 @@ export const imoveisSimulacao = {
   // venda = financiado (avaliacao × 80%) + entrada = 280.000 + 10.000 = 290.000.
   // avaliacao (350.000) é interna — NUNCA exibir esse valor pro cliente.
   buenavista:  { nome: "Casa 3 Quartos — Setor Buena Vista", status: "disponivel", venda: 290000, avaliacao: 350000 },
+  eldorado:    { nome: "Casa 2 Quartos — Eldorado Oeste (Vera Cruz 2)", status: "disponivel", venda: 250000, avaliacao: 300000 },
 };
 
 // Tabela oficial de taxas por faixa de renda

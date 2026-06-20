@@ -33,6 +33,9 @@ class Session {
     // depois disso — evita que uma extração de IA confunda valor do catálogo com dado
     // pessoal e dispare simulação sem o cliente ter informado nada.
     this.coletaIniciada = false;
+    // true quando já avisamos o time sobre uma candidatura à vaga de estágio (item 0 do
+    // prompt) — evita notificar de novo se o candidato mandar mais mensagens depois.
+    this.estagioAlertaEnviado = false;
   }
 
   addMessage(role, content) {

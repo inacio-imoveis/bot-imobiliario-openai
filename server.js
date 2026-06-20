@@ -6,7 +6,7 @@ import { imoveisSimulacao, simular, formatarSimulacao, LINK_AGENDA } from "./sim
 import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage, isBotMessageId, isWithinBotSendCooldown } from "./whatsapp.js";
 import { buildSystemPrompt } from "./prompt.js";
-import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert } from "./handoff.js";
+import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert, formatEstagioAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, getLeadsParaFollowup3, getLeadsParaFollowup4, marcarFollowup1Enviado, marcarFollowup2Enviado, marcarFollowup3Enviado, marcarFollowup4Enviado, listarFaqs, criarFaq, atualizarFaq, excluirFaq, buscarFaqSimilar, registrarUsoFaq, listarUsosFaq } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
 import { extractLeadComIA, podeSimular, camposFaltantes } from "./leadExtractor.js";
@@ -190,6 +190,7 @@ async function saveSession(phone, session) {
     extractAttemptsAfterHandoff: session.extractAttemptsAfterHandoff,
     lastExtractLen: session.lastExtractLen,
     coletaIniciada: session.coletaIniciada,
+    estagioAlertaEnviado: session.estagioAlertaEnviado,
   });
 }
 
@@ -207,6 +208,7 @@ async function hydrateSession(phone, session) {
       session.extractAttemptsAfterHandoff = state.extractAttemptsAfterHandoff || 0;
       session.lastExtractLen = state.lastExtractLen || 0;
       session.coletaIniciada = state.coletaIniciada || false;
+      session.estagioAlertaEnviado = state.estagioAlertaEnviado || false;
     }
 
     if (session.history.length === 0) {
@@ -349,6 +351,11 @@ app.post("/webhook", async (req, res) => {
 
       const msg = data.message || {};
       const isAudio = !!(msg.audioMessage || msg.pttMessage);
+      const isDocument = !!msg.documentMessage;
+      // imageMessage sem legenda (caption) também é tratada como possível anexo de
+      // currículo (foto do currículo impresso/printado) — com legenda, o texto da
+      // legenda já seria capturado normalmente como userText mais abaixo.
+      const isImageNoCaption = !!msg.imageMessage && !msg.imageMessage?.caption;
 
       if (isAudio) {
         console.log(`[${phone}] 🎙️ Áudio recebido — transcrevendo...`);
@@ -360,6 +367,17 @@ app.post("/webhook", async (req, res) => {
         }
         console.log(`[${phone}] 🎙️ Transcrição: "${userText}"`);
         await sendWhatsAppMessage(phone, `🎙️ _Entendi: "${userText}"_`);
+      } else if (isDocument || isImageNoCaption) {
+        // Antes, documentMessage/imageMessage sem texto chegavam aqui sem userText e
+        // eram silenciosamente descartadas (return na checagem abaixo) — candidatos
+        // mandando currículo em PDF/foto nunca recebiam resposta nem eram notificados.
+        // Convertemos num texto sintético para a IA reconhecer o anexo e responder
+        // conforme o fluxo de vaga de estágio (item 0 do prompt).
+        const nomeArquivo = msg.documentMessage?.fileName || null;
+        userText = isDocument
+          ? `[ANEXO RECEBIDO: documento${nomeArquivo ? ` "${nomeArquivo}"` : ""} — provável currículo em PDF]`
+          : `[ANEXO RECEBIDO: imagem sem legenda — provável foto de currículo]`;
+        console.log(`[${phone}] 📎 Anexo recebido (${isDocument ? "documento" : "imagem"}), tratado como possível currículo.`);
       } else {
         userText =
           msg.conversation ||
@@ -370,6 +388,9 @@ app.post("/webhook", async (req, res) => {
           msg.templateButtonReplyMessage?.selectedDisplayText ||
           msg.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
           msg.listResponseMessage?.title ||
+          // legenda de imagem/documento (quando enviado COM legenda)
+          msg.imageMessage?.caption ||
+          msg.documentMessage?.caption ||
           null;
         // Se era JSON de paramsJson, tenta extrair texto legível
         if (userText && userText.startsWith('{')) {
@@ -637,6 +658,18 @@ async function handleMessage(phone, userText) {
   // um marcador confiável de que esse fluxo realmente começou nesta conversa.
   if (!session.coletaIniciada && reply.includes("LGPD")) {
     session.coletaIniciada = true;
+  }
+
+  // Notifica o time quando a Ana confirma recebimento de currículo da vaga de estágio
+  // (item 0 do prompt) — mesma ideia do alerta de lead de imóvel, mas para candidatura.
+  // "Recebemos seu currículo" é o trecho fixo da mensagem de confirmação definida no
+  // prompt, usado aqui como marcador confiável. Dispara só uma vez por sessão.
+  if (!session.estagioAlertaEnviado && reply.includes("Recebemos seu currículo")) {
+    session.estagioAlertaEnviado = true;
+    const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
+    if (TEAM_NUMBER) {
+      await sendWhatsAppMessage(TEAM_NUMBER, formatEstagioAlert(phone, session));
+    }
   }
 
   await saveSession(phone, session);

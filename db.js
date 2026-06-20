@@ -137,6 +137,7 @@ export async function getSessionState(phone) {
       extractAttemptsAfterHandoff: meta.extractAttemptsAfterHandoff || 0,
       lastExtractLen: meta.lastExtractLen || 0,
       coletaIniciada: meta.coletaIniciada || false,
+      estagioAlertaEnviado: meta.estagioAlertaEnviado || false,
     };
   } catch (err) {
     console.error("Erro ao buscar estado da sessão:", err.message);
@@ -153,6 +154,7 @@ export async function saveSessionState(phone, state) {
         extractAttemptsAfterHandoff: state.extractAttemptsAfterHandoff || 0,
         lastExtractLen: state.lastExtractLen || 0,
         coletaIniciada: state.coletaIniciada || false,
+        estagioAlertaEnviado: state.estagioAlertaEnviado || false,
       },
     };
     const dados = {

@@ -22,6 +22,16 @@ export function formatHandoffAlert(phone, session, trigger) {
   return `🚨 *Solicitação de atendimento humano*\n\nCliente: ${phone}\nMensagem: "${trigger}"\n\nÚltimas mensagens:\n${preview}\n\nResponda diretamente para este número.`;
 }
 
+// Alerta enviado quando a Ana confirma recebimento de currículo da vaga de estágio
+export function formatEstagioAlert(phone, session) {
+  const history = session.getHistory().slice(-10);
+  const preview = history
+    .map(m => `${m.role === "user" ? "Candidato" : "Ana"}: ${m.content}`)
+    .join("\n");
+
+  return `🎓 *Nova candidatura — Vaga de Estágio (Engenharia Civil)*\n\nCandidato: ${phone}\n\nÚltimas mensagens:\n${preview}\n\nResponda diretamente para este número.`;
+}
+
 // Alerta enviado quando a coleta de dados foi concluída (com ou sem simulação enviada)
 export function formatLeadAlert(phone, session, { simulado, faltando = [] }) {
   const lead = session.leadData || {};

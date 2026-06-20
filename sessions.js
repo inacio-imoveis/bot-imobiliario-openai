@@ -36,6 +36,9 @@ class Session {
     // true quando já avisamos o time sobre uma candidatura à vaga de estágio (item 0 do
     // prompt) — evita notificar de novo se o candidato mandar mais mensagens depois.
     this.estagioAlertaEnviado = false;
+    // snapshot (string) dos campos do lead na última vez que enviamos ao CRM — evita
+    // criar um lead duplicado no CRM a cada extração quando nada de novo foi informado
+    this.lastCrmSnapshot = null;
   }
 
   addMessage(role, content) {

@@ -212,6 +212,7 @@ async function hydrateSession(phone, session) {
       session.lastExtractLen = state.lastExtractLen || 0;
       session.coletaIniciada = state.coletaIniciada || false;
       session.estagioAlertaEnviado = state.estagioAlertaEnviado || false;
+      session.lastCrmSnapshot = state.lastCrmSnapshot || null;
     }
 
     if (session.history.length === 0) {
@@ -228,7 +229,9 @@ async function hydrateSession(phone, session) {
 }
 
 // Salvar dados no banco a partir do leadData acumulado da sessão
-function salvarLead(phone, data) {
+// Só sincroniza com o CRM quando o conteúdo do lead muda de fato — evita criar um
+// registro novo no CRM a cada extração quando o cliente não informou nada novo.
+function salvarLead(phone, data, session) {
   const leadData = {};
   if (data.nome) leadData.nome = data.nome;
   if (data.renda) leadData.renda_mensal = String(data.renda);
@@ -237,8 +240,19 @@ function salvarLead(phone, data) {
   if (typeof data.comDependente === "boolean") leadData.dependentes = data.comDependente ? "sim" : "não";
   if (Object.keys(leadData).length > 0) {
     upsertLead(phone, leadData);
-    // Sincronizar com CRM sempre que tiver nome
-    if (data.nome) enviarLeadAoCRM(phone, data).catch(e => console.error("[CRM]", e.message));
+    if (data.nome) {
+      const snapshot = JSON.stringify({
+        nome: data.nome,
+        imovelKey: data.imovelKey || null,
+        renda: data.renda || null,
+        tipo: data.tipo || null,
+        comDependente: data.comDependente ?? null,
+      });
+      if (!session || session.lastCrmSnapshot !== snapshot) {
+        enviarLeadAoCRM(phone, data).catch(e => console.error("[CRM]", e.message));
+        if (session) session.lastCrmSnapshot = snapshot;
+      }
+    }
   }
 }
 
@@ -703,7 +717,7 @@ async function handleMessage(phone, userText) {
     // Atualiza os dados do lead de forma incremental (sobrevive ao corte do histórico)
     session.leadData = await extractLeadComIA(openai, session.getHistory(), session.leadData);
     session.lastExtractLen = session.getHistory().length;
-    salvarLead(phone, session.leadData);
+    salvarLead(phone, session.leadData, session);
     if (presoAposHandoff) session.extractAttemptsAfterHandoff += 1;
 
     // 1) Assim que houver dados suficientes, dispara a simulação — somente UMA vez por sessão
@@ -750,8 +764,9 @@ async function handleMessage(phone, userText) {
       session.handoffAlertaEnviado = true;
       session.handoffImovelKey = session.leadData.imovelKey || null;
 
-      // Enviar lead ao CRM quando qualificado
-      enviarLeadAoCRM(phone, session.leadData).catch(e => console.error("[CRM]", e.message));
+      // Enviar lead ao CRM quando qualificado (passa pela mesma guarda de snapshot —
+      // evita duplicar se a extração logo acima já enviou os mesmos dados nesta rodada)
+      salvarLead(phone, session.leadData, session);
 
       const TEAM_NUMBER = process.env.TEAM_PHONE_NUMBER;
       if (TEAM_NUMBER) {

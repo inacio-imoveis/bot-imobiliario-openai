@@ -21,6 +21,7 @@ export const imoveisSimulacao = {
   // avaliacao (350.000) é interna — NUNCA exibir esse valor pro cliente.
   buenavista:  { nome: "Casa 3 Quartos — Setor Buena Vista", status: "disponivel", venda: 290000, avaliacao: 350000 },
   eldorado:    { nome: "Casa 2 Quartos — Eldorado Oeste (Vera Cruz 2)", status: "disponivel", venda: 250000, avaliacao: 300000 },
+  eldoradoesquina: { nome: "Casa 2 Quartos de Esquina — Eldorado Oeste (Vera Cruz 2)", status: "disponivel", venda: 290000, avaliacao: 350000 },
 };
 
 // Tabela oficial de taxas por faixa de renda

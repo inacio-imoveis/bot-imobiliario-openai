@@ -166,4 +166,22 @@ export const catalog = [
       "https://ricardoinacioimoveis.com.br/imagens/eldorado-oeste-6.jpeg"
     ]
   },
+  {
+    nome: "Casa 2 Quartos de Esquina — Eldorado Oeste (Vera Cruz 2)",
+    status: "disponivel",
+    quartos: 2,
+    bairro: "Região do Vera Cruz 2, Setor Eldorado Oeste, Goiânia/GO",
+    referencia: "Casa de esquina, região do Vera Cruz 2",
+    entrada: 10000,
+    renda_minima: 7000,
+    descricao: "Casa 2 quartos com 2 banheiros, de esquina, com mega quintal. Localizada na região do Vera Cruz 2, Setor Eldorado Oeste.",
+    diferenciais: ["2 quartos", "2 banheiros", "Casa de esquina", "Mega quintal"],
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-esquina-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-esquina-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-esquina-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-esquina-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/eldorado-esquina-5.jpeg"
+    ]
+  },
 ];

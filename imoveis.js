@@ -184,4 +184,23 @@ export const catalog = [
       "https://ricardoinacioimoveis.com.br/imagens/eldorado-esquina-5.jpeg"
     ]
   },
+  {
+    nome: "Apartamento 2 Quartos — Privilege MRV Carolina Parque",
+    status: "disponivel",
+    quartos: 2,
+    bairro: "Carolina Parque, Goiânia/GO",
+    referencia: "Região do Carolina Parque",
+    entrada: "Sinal a partir de R$ 1.000 + entrada parcelada",
+    renda_minima: 2900,
+    descricao: "Apartamento 2 quartos no Privilege MRV, empreendimento com condições facilitadas pelo Minha Casa Minha Vida (MCMV). Condição final (sinal, entrada e parcela) varia conforme unidade, torre, andar, campanha vigente e análise de crédito — corretor confirma a tabela atualizada após coleta do perfil.",
+    diferenciais: ["2 quartos", "Programa Minha Casa Minha Vida (MCMV)", "Sinal a partir de R$ 1.000", "Entrada parcelada", "Área de lazer completa (piscina, quadra poliesportiva, playground)"],
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-5.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-6.jpeg"
+    ]
+  },
 ];

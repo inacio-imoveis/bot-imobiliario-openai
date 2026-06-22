@@ -419,6 +419,33 @@ app.post("/webhook", async (req, res) => {
         if (userText && userText.startsWith('{')) {
           try { const p = JSON.parse(userText); userText = p.id || p.name || p.display_text || userText; } catch {}
         }
+        // Enriquecer userText com dados do link preview ou anúncio externo (Instagram/Facebook Ads)
+        // quando o texto seja só uma URL ou vazio — assim a Ana consegue identificar o imóvel pelo título/descrição
+        const ext = msg.extendedTextMessage;
+        if (ext) {
+          const previewTitle = ext.title || ext.contextInfo?.externalAdReply?.title || "";
+          const previewDesc  = ext.description || ext.contextInfo?.externalAdReply?.body || "";
+          const previewUrl   = ext.matchedText || ext.canonicalUrl || ext.contextInfo?.externalAdReply?.sourceUrl || "";
+          const extra = [previewTitle, previewDesc, previewUrl].filter(Boolean).join(" | ");
+          if (extra) {
+            const isJustUrl = !userText || /^https?:\/\/\S+$/.test((userText || "").trim());
+            if (isJustUrl) {
+              userText = `[LINK COMPARTILHADO: ${extra}]`;
+            } else {
+              userText = `${userText} [contexto: ${extra}]`;
+            }
+            console.log(`[${phone}] 🔗 Link preview enriquecido: "${userText}"`);
+          }
+        }
+        // Anúncio externo sem extendedTextMessage (ex: orderMessage / catalogMessage do Meta)
+        const adReply = msg.contextInfo?.externalAdReply;
+        if (!ext && adReply) {
+          const adExtra = [adReply.title, adReply.body, adReply.sourceUrl].filter(Boolean).join(" | ");
+          if (adExtra) {
+            userText = userText ? `${userText} [anúncio: ${adExtra}]` : `[ANÚNCIO: ${adExtra}]`;
+            console.log(`[${phone}] 📢 Anúncio externo detectado: "${userText}"`);
+          }
+        }
       }
 
       if (!userText || !phone) return;

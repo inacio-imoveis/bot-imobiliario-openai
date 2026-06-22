@@ -727,6 +727,15 @@ async function handleMessage(phone, userText) {
   await sendWhatsAppMessage(phone, reply);
   await logMensagem(phone, "bot", reply);
 
+  // Se a Ana transferiu para especialista por não identificar imóvel ou loop de perguntas,
+  // seta waitingForHuman para o bot parar de responder completamente após essa mensagem.
+  if (reply.includes("Vou te conectar com um de nossos especialistas")) {
+    console.log(`[${phone}] 🔀 Transferência para especialista — bot pausado.`);
+    session.setWaitingForHuman(true);
+    await saveSession(phone, session);
+    return;
+  }
+
   // ── EXTRAÇÃO DE LEAD + SIMULAÇÃO AUTOMÁTICA ──────────────────────────────
   // Detecta se a IA acabou de coletar (ou tentou coletar) todos os dados
   const frasesColeta = reply.toLowerCase().includes("anotei tudo") ||

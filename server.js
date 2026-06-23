@@ -538,16 +538,55 @@ async function handleMessage(phone, userText) {
       const msgSaudacao =
         "Olá! 😊 Seja bem-vindo(a) à Ricardo Inácio Imóveis.\n\n" +
         "Eu sou a Ana, assistente virtual.\n\n" +
-        "Vi que você entrou em contato através de um anúncio. Para eu te ajudar melhor, qual é o seu nome?";
+        "Para te atender melhor, me diz:\n\n" +
+        "*1️⃣* – Tenho interesse em *imóveis*\n" +
+        "*2️⃣* – Tenho interesse na *vaga de estágio*";
       await sendWhatsAppMessage(phone, msgSaudacao);
       await logMensagem(phone, "bot", msgSaudacao);
       session.addMessage("assistant", msgSaudacao);
       await saveSession(phone, session);
-      console.log(`[${phone}] ✅ Gatilho saudação inicial disparado`);
+      console.log(`[${phone}] ✅ Gatilho saudação inicial disparado (menu 1/2)`);
       return;
     }
   }
   // ── FIM DO GATILHO DE SAUDAÇÃO INICIAL ───────────────────────────────────
+
+  // ── RESPOSTA AO MENU 1/2 ─────────────────────────────────────────────────
+  {
+    const histAssistant = session.getHistory().filter(m => m.role === "assistant");
+    const lastBotMsg = histAssistant.length > 0 ? histAssistant[histAssistant.length - 1].content : "";
+    const isMenuContext = lastBotMsg.includes("1️⃣") && lastBotMsg.includes("2️⃣");
+    if (isMenuContext) {
+      const textLowerMenu = userText.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const menuImovel = /^1$|im[oó]vel|im[oó]veis|comprar|financiar|apartamento|casa/.test(textLowerMenu);
+      const menuEstagio = /^2$|est[aá]gio|vaga|curriculo|engenharia/.test(textLowerMenu);
+
+      if (menuImovel) {
+        const msgImovel =
+          "Ótimo! 😊 Vou te ajudar com informações sobre nossos imóveis.\n\n" +
+          "Qual foi o imóvel que você viu?";
+        await sendWhatsAppMessage(phone, msgImovel);
+        await logMensagem(phone, "bot", msgImovel);
+        session.addMessage("assistant", msgImovel);
+        await saveSession(phone, session);
+        console.log(`[${phone}] ✅ Menu → fluxo imóvel`);
+        return;
+      }
+
+      if (menuEstagio) {
+        const msgEstagio =
+          "Ótimo! 😊 Vou te passar para o fluxo de seleção.\n\n" +
+          "Você está cursando Engenharia Civil atualmente?";
+        await sendWhatsAppMessage(phone, msgEstagio);
+        await logMensagem(phone, "bot", msgEstagio);
+        session.addMessage("assistant", msgEstagio);
+        await saveSession(phone, session);
+        console.log(`[${phone}] ✅ Menu → fluxo estágio`);
+        return;
+      }
+    }
+  }
+  // ── FIM DA RESPOSTA AO MENU 1/2 ──────────────────────────────────────────
 
   // Cliente demonstrou interesse em OUTRO imóvel depois de já ter passado pelo
   // ciclo de simulação/alerta — reabre o ciclo pra esse novo imóvel

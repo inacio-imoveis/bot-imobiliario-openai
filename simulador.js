@@ -22,6 +22,9 @@ export const imoveisSimulacao = {
   buenavista:  { nome: "Casa 3 Quartos — Setor Buena Vista", status: "disponivel", venda: 290000, avaliacao: 350000 },
   eldorado:    { nome: "Casa 2 Quartos — Eldorado Oeste (Vera Cruz 2)", status: "disponivel", venda: 250000, avaliacao: 300000 },
   eldoradoesquina: { nome: "Casa 2 Quartos de Esquina — Eldorado Oeste (Vera Cruz 2)", status: "disponivel", venda: 290000, avaliacao: 350000 },
+  // entrada derivada pela fórmula: venda - (avaliacao × 80%) = 285.000 - 236.000 = 49.000.
+  // avaliacao (295.000) é interna — NUNCA exibir pro cliente.
+  montepascoal: { nome: "Casa 2 Quartos — Monte Pascoal", status: "disponivel", venda: 285000, avaliacao: 295000 },
   // status "consulta" (não "disponivel"): impede que simular() rode automaticamente para esse
   // imóvel, pois a condição (sinal/entrada/parcela) varia por unidade/torre/andar/campanha.
   // Entrada aqui só serve para alimentar o nome no CRM (salvarLead em server.js).

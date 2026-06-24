@@ -190,6 +190,25 @@ export const catalog = [
     ]
   },
   {
+    nome: "Casa 2 Quartos — Monte Pascoal",
+    status: "disponivel",
+    quartos: 2,
+    bairro: "Monte Pascoal, Goiânia/GO",
+    referencia: "A 10 min do Shopping América",
+    entrada: 49000,
+    renda_minima: 7000,
+    descricao: "Casa 2 quartos com mega quintal, ótima localização no Monte Pascoal, a 10 min do Shopping América. Pode usar FGTS na entrada.",
+    diferenciais: ["2 quartos", "Mega quintal", "A 10 min do Shopping América", "Pode usar FGTS na entrada"],
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/monte-pascoal-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/monte-pascoal-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/monte-pascoal-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/monte-pascoal-4.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/monte-pascoal-5.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/monte-pascoal-6.jpeg"
+    ]
+  },
+  {
     nome: "Apartamento 2 Quartos — Privilege MRV Carolina Parque",
     status: "disponivel",
     quartos: 2,

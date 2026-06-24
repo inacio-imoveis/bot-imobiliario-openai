@@ -58,6 +58,7 @@ const PHOTO_KEYWORDS = [
   { key: "buena vista",      names: ["buena vista", "buenavista"] },
   { key: "eldorado oeste",   names: ["eldorado oeste", "eldorado", "vera cruz", "vera cruz 2"] },
   { key: "esquina",          names: ["casa de esquina", "esquina", "mega quintal", "casa esquina"] },
+  { key: "monte pascoal",    names: ["monte pascoal", "montepascoal", "shopping america"] },
   { key: "carolina parque",  names: ["carolina parque", "carolina", "privilege", "privilege mrv", "mrv carolina"] },
 ];
 
@@ -106,6 +107,7 @@ const IMOVELKEY_TO_CATALOG = {
   buenavista: "buena vista",
   eldorado: "eldorado oeste",
   eldoradoesquina: "esquina",
+  montepascoal: "monte pascoal",
   carolinaparque: "carolina parque",
 };
 function findCatalogByImovelKey(imovelKey) {
@@ -191,6 +193,7 @@ function extractLeadFromHistory(messages) {
     buenavista: ["buena vista", "buenavista"],
     eldorado: ["eldorado oeste", "eldorado", "vera cruz 2", "vera cruz"],
     eldoradoesquina: ["casa de esquina", "casa esquina", "mega quintal"],
+    montepascoal: ["monte pascoal", "montepascoal", "shopping america", "shopping américa"],
     carolinaparque: ["carolina parque", "carolina", "privilege", "privilege mrv", "mrv carolina"],
   };
   for (const [key, terms] of Object.entries(imovelKeys)) {

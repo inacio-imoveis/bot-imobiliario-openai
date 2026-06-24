@@ -48,6 +48,20 @@ function isDuplicateMessage(id) {
 
 // ── DETECTORES ──────────────────────────────────────────────────────────────
 
+// Normaliza texto de ENTRADA do cliente para busca de keyword: minúsculas, remove
+// acentos, e troca separadores (hífen, underscore, barra, pontos) por espaço.
+// Os separadores importam porque leads vindos do site chegam como URL
+// (ex: "...casa-2-quartos-monte-pascoal-goiania"), onde o nome do imóvel está colado
+// por hífens — sem essa troca, "monte pascoal" (com espaço) nunca casaria com
+// "monte-pascoal" (com hífen) e o lead do site não seria reconhecido.
+function normalizarTexto(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[-_/.]+/g, " ");
+}
+
 // names: keywords fortes (nome/bairro/empreendimento, identificam o imóvel sozinhas).
 // weak:  keywords fracas/ambíguas (diferenciais genéricos como "mega quintal", ou
 //        termos parciais como "carolina"/"penna") que aparecem em vários imóveis ou
@@ -73,7 +87,7 @@ const PHOTO_KEYWORDS = [
 // Isso evita que termos genéricos ("mega quintal", "vera cruz") sequestrem um anúncio
 // que também traz o nome do imóvel certo (ex: "Monte Pascoal com mega quintal").
 function findImovelByText(text) {
-  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const lower = normalizarTexto(text);
   let melhor = null; // { key, strong, len }
   for (const k of PHOTO_KEYWORDS) {
     const fortes = k.names || [];
@@ -116,7 +130,7 @@ const STRONG_IMOVEL_KEYWORDS = [
 ];
 
 function findImovelStrong(text) {
-  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const lower = normalizarTexto(text);
   for (const k of STRONG_IMOVEL_KEYWORDS) {
     if (k.names.some(n => lower.includes(n))) {
       return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(k.key));

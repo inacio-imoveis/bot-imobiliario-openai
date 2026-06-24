@@ -558,13 +558,22 @@ async function handleMessage(phone, userText) {
     const isMenuContext = lastBotMsg.includes("1️⃣") && lastBotMsg.includes("2️⃣");
     if (isMenuContext) {
       const textLowerMenu = userText.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const menuImovel = /^1$|im[oó]vel|im[oó]veis|comprar|financiar|apartamento|casa/.test(textLowerMenu);
-      const menuEstagio = /^2$|est[aá]gio|vaga|curriculo|engenharia/.test(textLowerMenu);
+      // Detecta a escolha "1" mesmo quando o cliente mandou outras mensagens junto
+      // (o buffer/debounce pode combinar "Quanto fica as parcelas?\n1" num texto só).
+      // \b1\b casa o dígito isolado em qualquer linha do texto combinado.
+      const escolheu1 = /(^|\n|\s)1($|\n|\s|[.)º°]|$)/.test(textLowerMenu);
+      const escolheu2 = /(^|\n|\s)2($|\n|\s|[.)º°]|$)/.test(textLowerMenu);
+      const menuImovel = escolheu1 || /im[oó]vel|im[oó]veis|comprar|financiar|apartamento|casa/.test(textLowerMenu);
+      const menuEstagio = escolheu2 || /est[aá]gio|vaga|curriculo|engenharia/.test(textLowerMenu);
+      // Cliente já demonstrou interesse em valores/parcelas/simulação junto com a escolha
+      const perguntouSimulacao = /parcela|quanto fica|quanto custa|quanto sai|financiamento|simula|valor|entrada|presta[cç]/.test(textLowerMenu);
 
       if (menuImovel) {
-        const msgImovel =
-          "Ótimo! 😊 Vou te ajudar com informações sobre nossos imóveis.\n\n" +
-          "Qual foi o imóvel que você viu?";
+        const msgImovel = perguntouSimulacao
+          ? "Perfeito! 😊 Pra te passar certinho os valores e as parcelas, primeiro me diz:\n\n" +
+            "Qual foi o imóvel que você viu?"
+          : "Ótimo! 😊 Vou te ajudar com informações sobre nossos imóveis.\n\n" +
+            "Qual foi o imóvel que você viu?";
         await sendWhatsAppMessage(phone, msgImovel);
         await logMensagem(phone, "bot", msgImovel);
         session.addMessage("assistant", msgImovel);

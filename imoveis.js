@@ -144,7 +144,12 @@ export const catalog = [
       "https://ricardoinacioimoveis.com.br/imagens/buena-vista-4.jpeg",
       "https://ricardoinacioimoveis.com.br/imagens/buena-vista-5.jpeg",
       "https://ricardoinacioimoveis.com.br/imagens/buena-vista-6.jpeg",
-      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-7.jpeg"
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-7.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-8.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-9.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-10.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-11.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/buena-vista-12.jpeg"
     ]
   },
   {

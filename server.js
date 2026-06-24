@@ -525,6 +525,43 @@ async function handleMessage(phone, userText) {
   const isFirstContact = session.getHistory().filter(m => m.role === "assistant").length === 0;
   if (isFirstContact) {
     const textLower = userText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // ── NOVO: Detector de imóvel específico na primeira mensagem ──────────────
+    // Se o cliente já mencionou um imóvel específico (ex: "Quanto fica Buena Vista?")
+    // pula o menu genérico e vai direto para apresentação focada daquele imóvel.
+    const imovelMencionado = findImovelByText(userText);
+    if (imovelMencionado) {
+      const entradaTexto = typeof imovelMencionado.entrada === "number"
+        ? `R$ ${imovelMencionado.entrada.toLocaleString("pt-BR")}`
+        : imovelMencionado.entrada;
+      const rendaTexto = imovelMencionado.renda_minima 
+        ? ` • Renda mínima: R$ ${imovelMencionado.renda_minima.toLocaleString("pt-BR")}`
+        : "";
+      const diferenciais = imovelMencionado.diferenciais.map(d => `  ✅ ${d}`).join("\n");
+      
+      const msgFocada = 
+        `Olá! 👋 Vi que você se interessou na *${imovelMencionado.nome}*!\n\n` +
+        `📍 ${imovelMencionado.bairro} — ${imovelMencionado.referencia}\n` +
+        `🔑 Entrada a partir de ${entradaTexto}${rendaTexto}\n\n` +
+        `${diferenciais}\n\n` +
+        `${imovelMencionado.descricao}\n\n` +
+        `Quer que eu faça uma simulação personalizada das parcelas para seu perfil? 😊`;
+      
+      await sendWhatsAppMessage(phone, msgFocada);
+      await logMensagem(phone, "bot", msgFocada);
+      session.addMessage("assistant", msgFocada);
+      
+      // Registra o imóvel no lead para contexto futuro
+      const leadData = session.leadData || {};
+      leadData.imovelKey = imovelMencionado.nome.toLowerCase();
+      session.leadData = leadData;
+      
+      await saveSession(phone, session);
+      console.log(`[${phone}] ✅ Imóvel detectado na 1ª mensagem: ${imovelMencionado.nome}`);
+      return;
+    }
+    // ── FIM do detector de imóvel específico ───────────────────────────────────
+    
     const saudacaoKeywords = [
       "tenho interesse", "quero mais informacoes", "gostaria de saber mais",
       "vi o anuncio", "ainda esta disponivel", "ainda disponivel",

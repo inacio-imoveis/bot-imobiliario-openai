@@ -48,24 +48,76 @@ function isDuplicateMessage(id) {
 
 // ── DETECTORES ──────────────────────────────────────────────────────────────
 
+// names: keywords fortes (nome/bairro/empreendimento, identificam o imóvel sozinhas).
+// weak:  keywords fracas/ambíguas (diferenciais genéricos como "mega quintal", ou
+//        termos parciais como "carolina"/"penna") que aparecem em vários imóveis ou
+//        em frases casuais — só valem se nenhuma keyword forte de outro imóvel casar.
+// O match (findImovelByText) escolhe: forte ganha de fraca; entre iguais, a mais longa.
 const PHOTO_KEYWORDS = [
   { key: "botanico",         names: ["botanico"] },
-  { key: "della penna",      names: ["della penna", "della", "penna"] },
+  { key: "della penna",      names: ["della penna"], weak: ["della", "penna"] },
   { key: "nacoes",           names: ["nacoes", "setor das nacoes"] },
-  { key: "pilar dos sonhos", names: ["noroeste", "pilar", "pilar dos sonhos", "sonhos", "atacadao", "portal shopping"] },
+  { key: "pilar dos sonhos", names: ["pilar dos sonhos", "setor pilar"], weak: ["noroeste", "pilar", "sonhos", "atacadao", "portal shopping"] },
   { key: "santa fe",         names: ["santa fe"] },
-  { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade", "nascer"] },
+  { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade nascer"], weak: ["maternidade", "nascer"] },
   { key: "buena vista",      names: ["buena vista", "buenavista"] },
-  { key: "eldorado oeste",   names: ["eldorado oeste", "eldorado", "vera cruz", "vera cruz 2"] },
-  { key: "esquina",          names: ["casa de esquina", "esquina", "mega quintal", "casa esquina"] },
-  { key: "monte pascoal",    names: ["monte pascoal", "montepascoal", "shopping america"] },
-  { key: "carolina parque",  names: ["carolina parque", "carolina", "privilege", "privilege mrv", "mrv carolina"] },
+  { key: "eldorado oeste",   names: ["eldorado oeste", "eldorado"], weak: ["vera cruz", "vera cruz 2"] },
+  { key: "esquina",          names: ["casa de esquina", "casa esquina", "eldorado esquina"], weak: ["esquina", "mega quintal"] },
+  { key: "monte pascoal",    names: ["monte pascoal", "montepascoal"], weak: ["shopping america"] },
+  { key: "carolina parque",  names: ["carolina parque", "privilege mrv", "mrv carolina"], weak: ["carolina", "privilege"] },
 ];
 
-// Busca imóvel do catálogo por menção no texto (sem exigir a palavra "foto")
+// Busca imóvel do catálogo por menção no texto (sem exigir a palavra "foto").
+// Coleta TODOS os matches e escolhe o mais específico: keyword forte tem prioridade
+// sobre fraca; entre keywords do mesmo nível, a mais longa (mais específica) vence.
+// Isso evita que termos genéricos ("mega quintal", "vera cruz") sequestrem um anúncio
+// que também traz o nome do imóvel certo (ex: "Monte Pascoal com mega quintal").
 function findImovelByText(text) {
   const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  let melhor = null; // { key, strong, len }
   for (const k of PHOTO_KEYWORDS) {
+    const fortes = k.names || [];
+    const fracas = k.weak || [];
+    const hitForte = fortes.filter(n => lower.includes(n)).sort((a, b) => b.length - a.length)[0];
+    const hitFraca = fracas.filter(n => lower.includes(n)).sort((a, b) => b.length - a.length)[0];
+    let cand = null;
+    if (hitForte) cand = { key: k.key, strong: true, len: hitForte.length };
+    else if (hitFraca) cand = { key: k.key, strong: false, len: hitFraca.length };
+    if (!cand) continue;
+    if (!melhor
+        || (cand.strong && !melhor.strong)
+        || (cand.strong === melhor.strong && cand.len > melhor.len)) {
+      melhor = cand;
+    }
+  }
+  if (!melhor) return null;
+  return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(melhor.key));
+}
+
+// Keywords FORTES para a abertura focada na 1ª mensagem de TEXTO LIVRE (sem anúncio).
+// Versão deliberadamente mais restrita que PHOTO_KEYWORDS: aqui o cliente ainda não
+// está em contexto de imóvel, então só disparamos com menção inequívoca (nome/bairro).
+// Palavras genéricas soltas ("esquina", "carolina", "mega quintal", "penna", "sonhos",
+// "nascer", "maternidade", "shopping america") foram propositalmente OMITIDAS porque
+// aparecem em frases casuais e causariam abertura focada errada. Quando o lead vem de
+// anúncio (marcador [ANÚNCIO:...]), usamos findImovelByText (permissivo) em vez desta.
+const STRONG_IMOVEL_KEYWORDS = [
+  { key: "botanico",         names: ["botanico"] },
+  { key: "della penna",      names: ["della penna"] },
+  { key: "nacoes",           names: ["setor das nacoes"] },
+  { key: "pilar dos sonhos", names: ["pilar dos sonhos", "setor pilar"] },
+  { key: "santa fe",         names: ["santa fe"] },
+  { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade nascer"] },
+  { key: "buena vista",      names: ["buena vista", "buenavista"] },
+  { key: "eldorado oeste",   names: ["eldorado oeste", "eldorado", "vera cruz"] },
+  { key: "esquina",          names: ["casa de esquina", "casa esquina", "eldorado esquina"] },
+  { key: "monte pascoal",    names: ["monte pascoal", "montepascoal"] },
+  { key: "carolina parque",  names: ["carolina parque", "privilege mrv", "mrv carolina"] },
+];
+
+function findImovelStrong(text) {
+  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for (const k of STRONG_IMOVEL_KEYWORDS) {
     if (k.names.some(n => lower.includes(n))) {
       return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(k.key));
     }
@@ -544,7 +596,17 @@ async function handleMessage(phone, userText) {
     // ── NOVO: Detector de imóvel específico na primeira mensagem ──────────────
     // Se o cliente já mencionou um imóvel específico (ex: "Quanto fica Buena Vista?")
     // pula o menu genérico e vai direto para apresentação focada daquele imóvel.
-    const imovelMencionado = findImovelByText(userText);
+    //
+    // O quão permissivo é o match depende da ORIGEM da mensagem:
+    // - Veio de anúncio/link do Meta (marcador [ANÚNCIO:...]/[LINK...]/[contexto:...]
+    //   injetado no webhook): contexto confiável -> match permissivo (findImovelByText),
+    //   aceita keywords do criativo como "mega quintal", "esquina", "carolina".
+    // - Texto livre puro (cliente digitou do nada): match estrito (findImovelStrong),
+    //   só nome/bairro inequívoco, pra não disparar abertura errada com palavra solta.
+    const veioDeAnuncio = /\[(anuncio|anúncio|link compartilhado|contexto):/i.test(userText);
+    const imovelMencionado = veioDeAnuncio
+      ? findImovelByText(userText)
+      : findImovelStrong(userText);
     if (imovelMencionado) {
       const keyCurta = imovelKeyFromCatalog(imovelMencionado);
       const isCarolinaParque = keyCurta === "carolinaparque";

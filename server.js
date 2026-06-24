@@ -5,7 +5,7 @@ import { catalog } from "./imoveis.js";
 import { imoveisSimulacao, simular, formatarSimulacao, LINK_AGENDA } from "./simulador.js";
 import { sessionManager } from "./sessions.js";
 import { sendWhatsAppMessage, sendWhatsAppImage, isBotMessageId, isWithinBotSendCooldown } from "./whatsapp.js";
-import { buildSystemPrompt } from "./prompt.js";
+import { buildSystemPrompt, MSG_CAROLINA_PERFIL } from "./prompt.js";
 import { detectHandoffTrigger, formatHandoffAlert, formatLeadAlert, formatEstagioAlert } from "./handoff.js";
 import { initDB, logMensagem, upsertLead, getConversas, getLeads, getResumo, getSessionState, saveSessionState, marcarSimulacaoEnviadaTimestamp, getLeadsParaFollowup1, getLeadsParaFollowup2, getLeadsParaFollowup3, getLeadsParaFollowup4, marcarFollowup1Enviado, marcarFollowup2Enviado, marcarFollowup3Enviado, marcarFollowup4Enviado, listarFaqs, criarFaq, atualizarFaq, excluirFaq, buscarFaqSimilar, registrarUsoFaq, listarUsosFaq } from "./db.js";
 import { transcribeBase64Audio } from "./audio.js";
@@ -543,34 +543,50 @@ async function handleMessage(phone, userText) {
     // pula o menu genérico e vai direto para apresentação focada daquele imóvel.
     const imovelMencionado = findImovelByText(userText);
     if (imovelMencionado) {
-      const entradaTexto = typeof imovelMencionado.entrada === "number"
-        ? `R$ ${imovelMencionado.entrada.toLocaleString("pt-BR")}`
-        : imovelMencionado.entrada;
+      const keyCurta = imovelKeyFromCatalog(imovelMencionado);
+      const isCarolinaParque = keyCurta === "carolinaparque";
+
       const rendaTexto = imovelMencionado.renda_minima 
         ? ` • Renda mínima: R$ ${imovelMencionado.renda_minima.toLocaleString("pt-BR")}`
         : "";
       const diferenciais = imovelMencionado.diferenciais.map(d => `  ✅ ${d}`).join("\n");
-      
-      const msgFocada = 
-        `Olá! 👋 Vi que você se interessou na *${imovelMencionado.nome}*!\n\n` +
-        `📍 ${imovelMencionado.bairro} — ${imovelMencionado.referencia}\n` +
-        `🔑 Entrada a partir de ${entradaTexto}${rendaTexto}\n\n` +
-        `${diferenciais}\n\n` +
-        `${imovelMencionado.descricao}\n\n` +
-        `Quer que eu faça uma simulação personalizada das parcelas para seu perfil? 😊`;
-      
+
+      let msgFocada;
+      if (isCarolinaParque) {
+        // Regra Carolina Parque (ver item correspondente no prompt.js):
+        // NUNCA simulação automática nem valor fixo. Apresenta o imóvel e
+        // coleta o perfil para o corretor confirmar a tabela. O texto do fecho
+        // vem de MSG_CAROLINA_PERFIL (fonte única, compartilhada com o prompt).
+        msgFocada =
+          `Olá! 👋 Vi que você se interessou no *${imovelMencionado.nome}*!\n\n` +
+          `📍 ${imovelMencionado.bairro} — ${imovelMencionado.referencia}\n\n` +
+          `${diferenciais}\n\n` +
+          `${imovelMencionado.descricao}\n\n` +
+          `${MSG_CAROLINA_PERFIL} 😊`;
+      } else {
+        const entradaTexto = typeof imovelMencionado.entrada === "number"
+          ? `R$ ${imovelMencionado.entrada.toLocaleString("pt-BR")}`
+          : imovelMencionado.entrada;
+        msgFocada =
+          `Olá! 👋 Vi que você se interessou na *${imovelMencionado.nome}*!\n\n` +
+          `📍 ${imovelMencionado.bairro} — ${imovelMencionado.referencia}\n` +
+          `🔑 Entrada a partir de ${entradaTexto}${rendaTexto}\n\n` +
+          `${diferenciais}\n\n` +
+          `${imovelMencionado.descricao}\n\n` +
+          `Quer que eu faça uma simulação personalizada das parcelas para seu perfil? 😊`;
+      }
+
       await sendWhatsAppMessage(phone, msgFocada);
       await logMensagem(phone, "bot", msgFocada);
       session.addMessage("assistant", msgFocada);
       
       // Registra o imóvel no lead para contexto futuro
       const leadData = session.leadData || {};
-      const keyCurta = imovelKeyFromCatalog(imovelMencionado);
       if (keyCurta) leadData.imovelKey = keyCurta;
       session.leadData = leadData;
       
       await saveSession(phone, session);
-      console.log(`[${phone}] ✅ Imóvel detectado na 1ª mensagem: ${imovelMencionado.nome}`);
+      console.log(`[${phone}] ✅ Imóvel detectado na 1ª mensagem: ${imovelMencionado.nome}${isCarolinaParque ? " (Carolina Parque — sem simulação)" : ""}`);
       return;
     }
     // ── FIM do detector de imóvel específico ───────────────────────────────────

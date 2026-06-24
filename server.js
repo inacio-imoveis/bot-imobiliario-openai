@@ -114,6 +114,18 @@ function findCatalogByImovelKey(imovelKey) {
   return catalog.find(i => i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term));
 }
 
+// Dado um item do catálogo, devolve a chave curta (buenavista, eldorado, etc.)
+// usada pelo simulador/extrator. Reaproveita IMOVELKEY_TO_CATALOG para não
+// duplicar mapeamento — fonte única de verdade.
+function imovelKeyFromCatalog(item) {
+  if (!item) return null;
+  const nomeNorm = item.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for (const [key, term] of Object.entries(IMOVELKEY_TO_CATALOG)) {
+    if (nomeNorm.includes(term)) return key;
+  }
+  return null;
+}
+
 // Extrai dados do lead do histórico da sessão
 function extractLeadFromHistory(messages) {
   // Considera APENAS mensagens do cliente — nunca as respostas da Ana
@@ -553,7 +565,8 @@ async function handleMessage(phone, userText) {
       
       // Registra o imóvel no lead para contexto futuro
       const leadData = session.leadData || {};
-      leadData.imovelKey = imovelMencionado.nome.toLowerCase();
+      const keyCurta = imovelKeyFromCatalog(imovelMencionado);
+      if (keyCurta) leadData.imovelKey = keyCurta;
       session.leadData = leadData;
       
       await saveSession(phone, session);

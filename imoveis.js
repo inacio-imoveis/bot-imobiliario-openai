@@ -227,4 +227,21 @@ export const catalog = [
       "https://ricardoinacioimoveis.com.br/imagens/carolina-parque-6.jpeg"
     ]
   },
+  {
+    nome: "Apartamento — Estilo Faiçalville (Tenda)",
+    status: "disponivel",
+    quartos: 2,
+    bairro: "Goiânia/GO",
+    referencia: "4 regiões à escolher em Goiânia",
+    entrada: "Sinal a partir de R$ 500",
+    renda_minima: 2800,
+    descricao: "Apartamento da Tenda, empreendimento Estilo Faiçalville, com condições facilitadas pelo Minha Casa Minha Vida (MCMV). Sinal a partir de R$ 500 e renda familiar a partir de R$ 2.800. Condição final (sinal, entrada e parcela) varia conforme unidade, torre, andar, campanha vigente e análise de crédito — corretor confirma a tabela atualizada após coleta do perfil.",
+    diferenciais: ["2 quartos", "Programa Minha Casa Minha Vida (MCMV)", "Sinal a partir de R$ 500", "Renda familiar a partir de R$ 2.800", "4 regiões à escolher em Goiânia", "Condições facilitadas para sair do aluguel"],
+    fotos: [
+      "https://ricardoinacioimoveis.com.br/imagens/estilo-faicalville-1.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/estilo-faicalville-2.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/estilo-faicalville-3.jpeg",
+      "https://ricardoinacioimoveis.com.br/imagens/estilo-faicalville-4.jpeg"
+    ]
+  },
 ];

@@ -29,6 +29,7 @@ export const imoveisSimulacao = {
   // imóvel, pois a condição (sinal/entrada/parcela) varia por unidade/torre/andar/campanha.
   // Entrada aqui só serve para alimentar o nome no CRM (salvarLead em server.js).
   carolinaparque: { nome: "Apartamento 2 Quartos — Privilege MRV Carolina Parque", status: "consulta", venda: null, avaliacao: null },
+  tenda:       { nome: "Apartamento — Estilo Faiçalville (Tenda)", status: "consulta", venda: null, avaliacao: null },
 };
 
 // Tabela oficial de taxas por faixa de renda

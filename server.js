@@ -79,6 +79,7 @@ const PHOTO_KEYWORDS = [
   { key: "esquina",          names: ["casa de esquina", "casa esquina", "eldorado esquina"], weak: ["esquina", "mega quintal"] },
   { key: "monte pascoal",    names: ["monte pascoal", "montepascoal"], weak: ["shopping america"] },
   { key: "carolina parque",  names: ["carolina parque", "privilege mrv", "mrv carolina"], weak: ["carolina", "privilege"] },
+  { key: "estilo faicalville", names: ["estilo faicalville", "faicalville", "estilo tenda"], weak: ["tenda", "estilo"] },
 ];
 
 // Busca imóvel do catálogo por menção no texto (sem exigir a palavra "foto").
@@ -127,6 +128,7 @@ const STRONG_IMOVEL_KEYWORDS = [
   { key: "esquina",          names: ["casa de esquina", "casa esquina", "eldorado esquina"] },
   { key: "monte pascoal",    names: ["monte pascoal", "montepascoal"] },
   { key: "carolina parque",  names: ["carolina parque", "privilege mrv", "mrv carolina"] },
+  { key: "estilo faicalville", names: ["estilo faicalville", "faicalville"] },
 ];
 
 function findImovelStrong(text) {
@@ -175,6 +177,7 @@ const IMOVELKEY_TO_CATALOG = {
   eldoradoesquina: "esquina",
   montepascoal: "monte pascoal",
   carolinaparque: "carolina parque",
+  tenda: "faicalville",
 };
 function findCatalogByImovelKey(imovelKey) {
   const term = IMOVELKEY_TO_CATALOG[imovelKey];
@@ -261,6 +264,7 @@ function extractLeadFromHistory(messages) {
     eldoradoesquina: ["casa de esquina", "casa esquina", "mega quintal"],
     montepascoal: ["monte pascoal", "montepascoal", "shopping america", "shopping américa"],
     carolinaparque: ["carolina parque", "carolina", "privilege", "privilege mrv", "mrv carolina"],
+    tenda: ["estilo faicalville", "faicalville", "estilo tenda", "tenda"],
   };
   for (const [key, terms] of Object.entries(imovelKeys)) {
     if (terms.some(t => lower.includes(t))) { data.imovelKey = key; break; }
@@ -623,7 +627,7 @@ async function handleMessage(phone, userText) {
       : findImovelStrong(userText);
     if (imovelMencionado) {
       const keyCurta = imovelKeyFromCatalog(imovelMencionado);
-      const isCarolinaParque = keyCurta === "carolinaparque";
+      const isConsulta = keyCurta === "carolinaparque" || keyCurta === "tenda";
 
       const rendaTexto = imovelMencionado.renda_minima 
         ? ` • Renda mínima: R$ ${imovelMencionado.renda_minima.toLocaleString("pt-BR")}`
@@ -631,8 +635,8 @@ async function handleMessage(phone, userText) {
       const diferenciais = imovelMencionado.diferenciais.map(d => `  ✅ ${d}`).join("\n");
 
       let msgFocada;
-      if (isCarolinaParque) {
-        // Regra Carolina Parque (ver item correspondente no prompt.js):
+      if (isConsulta) {
+        // Regra para empreendimentos de condição variável (Carolina Parque, Tenda Estilo Faiçalville):
         // NUNCA simulação automática nem valor fixo. Apresenta o imóvel e
         // coleta o perfil para o corretor confirmar a tabela. O texto do fecho
         // vem de MSG_CAROLINA_PERFIL (fonte única, compartilhada com o prompt).
@@ -665,7 +669,7 @@ async function handleMessage(phone, userText) {
       session.leadData = leadData;
       
       await saveSession(phone, session);
-      console.log(`[${phone}] ✅ Imóvel detectado na 1ª mensagem: ${imovelMencionado.nome}${isCarolinaParque ? " (Carolina Parque — sem simulação)" : ""}`);
+      console.log(`[${phone}] ✅ Imóvel detectado na 1ª mensagem: ${imovelMencionado.nome}${isConsulta ? " (condição variável — sem simulação)" : ""}`);
       return;
     }
     // ── FIM do detector de imóvel específico ───────────────────────────────────

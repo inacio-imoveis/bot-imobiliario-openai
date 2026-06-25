@@ -458,6 +458,33 @@ app.post("/webhook", async (req, res) => {
       if (key.remoteJid?.includes("@g.us")) return;
 
       const msg = data.message || {};
+
+      // ── DIAGNÓSTICO TEMPORÁRIO: calibração de ad-match ──────────────────────
+      // Loga a estrutura BRUTA de contexto de anúncio quando há qualquer indício
+      // de tráfego vindo de Meta Ads (Facebook/Instagram). Objetivo: descobrir o
+      // formato real do externalAdReply enviado pela Evolution API, já que o print
+      // de produção mostrou anúncio do Facebook caindo no menu genérico sem match.
+      // REMOVER após capturar 1 conversa real de anúncio e finalizar a calibração.
+      try {
+        const ctxTop = msg.contextInfo;
+        const ctxExt = msg.extendedTextMessage?.contextInfo;
+        const adTop = ctxTop?.externalAdReply;
+        const adExt = ctxExt?.externalAdReply;
+        if (adTop || adExt || ctxTop?.conversionSource || ctxExt?.conversionSource) {
+          const diag = {
+            phone,
+            msgType: Object.keys(msg).filter(k => k !== "messageContextInfo"),
+            externalAdReply_top: adTop || null,
+            externalAdReply_ext: adExt || null,
+            conversionSource: ctxTop?.conversionSource || ctxExt?.conversionSource || null,
+          };
+          console.log(`[${phone}] 🧪 [DIAG-ANUNCIO] ${JSON.stringify(diag)}`);
+        }
+      } catch (e) {
+        console.log(`[${phone}] 🧪 [DIAG-ANUNCIO] erro ao serializar contexto: ${e.message}`);
+      }
+      // ───────────────────────────────────────────────────────────────────────
+
       const isAudio = !!(msg.audioMessage || msg.pttMessage);
       const isDocument = !!msg.documentMessage;
       // imageMessage sem legenda (caption) também é tratada como possível anexo de

@@ -403,6 +403,69 @@ async function getAudioBase64(message) {
   }
 }
 
+// ── IMAGEM / VISÃO ───────────────────────────────────────────────────────────
+// Baixa a imagem da Evolution (mesmo endpoint do áudio) e classifica com visão
+// (gpt-4o-mini) para distinguir: print de imóvel × currículo × outro. Permite que
+// a Ana reaja a prints de imóvel enviados pelo cliente em vez de tratar toda
+// imagem sem legenda como currículo de estágio.
+async function getImageBase64(message) {
+  try {
+    const resp = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`, {
+      method: "POST",
+      headers: { "apikey": EVOLUTION_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ message, convertToMp4: false })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data?.base64 || data?.data?.base64 || null;
+  } catch (err) {
+    console.error("Erro ao buscar base64 da imagem:", err.message);
+    return null;
+  }
+}
+
+// Classifica a imagem. Retorna { tipo: "imovel"|"curriculo"|"outro", descricao: string }.
+// Em qualquer falha, retorna null para o chamador aplicar o fallback (tratar como currículo,
+// preservando o comportamento atual e nunca quebrando o fluxo de estágio).
+async function classifyImage(base64) {
+  try {
+    const visao = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 300,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Você classifica imagens recebidas no WhatsApp de uma imobiliária. " +
+            "Responda APENAS um JSON válido, sem markdown, no formato " +
+            '{"tipo":"imovel|curriculo|outro","descricao":"..."}. ' +
+            "Use \"imovel\" se a imagem for foto, print, anúncio ou captura de tela de um imóvel " +
+            "(casa, apartamento, fachada, planta, anúncio de portal imobiliário, listagem de venda). " +
+            "Use \"curriculo\" se for um currículo, CV, documento de candidatura ou foto de currículo impresso. " +
+            "Use \"outro\" para qualquer outra coisa. " +
+            "Em descricao, para imovel resuma o que aparece (tipo, nº de quartos, bairro/empreendimento se legível, " +
+            "se parece ser apartamento ou casa, e qualquer texto de preço/condição visível). Máx 2 frases."
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Classifique esta imagem:" },
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+          ]
+        }
+      ]
+    });
+    let raw = (visao.choices[0]?.message?.content || "").trim();
+    raw = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(raw);
+    if (!parsed?.tipo) return null;
+    return { tipo: parsed.tipo, descricao: parsed.descricao || "" };
+  } catch (err) {
+    console.error("Erro ao classificar imagem:", err.message);
+    return null;
+  }
+}
+
 // ── WEBHOOK ───────────────────────────────────────────────────────────────────
 
 app.get("/webhook", (req, res) => {
@@ -509,10 +572,36 @@ app.post("/webhook", async (req, res) => {
         // Convertemos num texto sintético para a IA reconhecer o anexo e responder
         // conforme o fluxo de vaga de estágio (item 0 do prompt).
         const nomeArquivo = msg.documentMessage?.fileName || null;
-        userText = isDocument
-          ? `[ANEXO RECEBIDO: documento${nomeArquivo ? ` "${nomeArquivo}"` : ""} — provável currículo em PDF]`
-          : `[ANEXO RECEBIDO: imagem sem legenda — provável foto de currículo]`;
-        console.log(`[${phone}] 📎 Anexo recebido (${isDocument ? "documento" : "imagem"}), tratado como possível currículo.`);
+
+        // IMAGEM sem legenda: antes de assumir currículo, classifica com visão para
+        // distinguir print de imóvel × currículo × outro. Cliente mandando print de
+        // anúncio/imóvel é comum e deve entrar no fluxo de venda, não no de estágio.
+        // Qualquer falha na classificação faz fallback para o comportamento antigo
+        // (tratar como currículo), preservando o fluxo de estágio.
+        let classificado = false;
+        if (isImageNoCaption) {
+          const imgB64 = await getImageBase64({ key, message: msg });
+          if (imgB64) {
+            const cls = await classifyImage(imgB64);
+            if (cls?.tipo === "imovel") {
+              userText = `[CLIENTE ENVIOU PRINT/FOTO DE IMÓVEL: ${cls.descricao || "imagem de um imóvel"}]`;
+              console.log(`[${phone}] 🏠 Print de imóvel detectado: "${cls.descricao}"`);
+              classificado = true;
+            } else if (cls?.tipo === "outro") {
+              userText = `[CLIENTE ENVIOU IMAGEM: ${cls.descricao || "conteúdo não identificado"} — confirme com o cliente o que ele deseja]`;
+              console.log(`[${phone}] 🖼️ Imagem "outro" detectada: "${cls.descricao}"`);
+              classificado = true;
+            }
+            // cls?.tipo === "curriculo" ou null → cai no fallback abaixo
+          }
+        }
+
+        if (!classificado) {
+          userText = isDocument
+            ? `[ANEXO RECEBIDO: documento${nomeArquivo ? ` "${nomeArquivo}"` : ""} — provável currículo em PDF]`
+            : `[ANEXO RECEBIDO: imagem sem legenda — provável foto de currículo]`;
+          console.log(`[${phone}] 📎 Anexo recebido (${isDocument ? "documento" : "imagem"}), tratado como possível currículo.`);
+        }
       } else {
         userText =
           msg.conversation ||

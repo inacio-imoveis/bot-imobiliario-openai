@@ -483,14 +483,14 @@ app.post("/webhook", async (req, res) => {
     const body = req.body;
     let phone, userText;
 
-    // ── DIAG-INSTANCIA (TEMPORÁRIO): descobrir nome do campo de instância no payload.
-    // Remover após capturar 1 evento e calibrar o filtro de instância.
-    console.log("[DIAG-INSTANCIA] instance=" + JSON.stringify(body?.instance) +
-      " | instanceName=" + JSON.stringify(body?.instanceName) +
-      " | data.instance=" + JSON.stringify(body?.data?.instance) +
-      " | sender=" + JSON.stringify(body?.sender) +
-      " | event=" + JSON.stringify(body?.event) +
-      " | topKeys=" + JSON.stringify(Object.keys(body || {})));
+    // Suporte a múltiplos deploys no mesmo webhook (ex.: bot-ricardo + bot-ricardo-2).
+    // O payload da Evolution traz o nome da instância em body.instance (confirmado em
+    // produção). Cada deploy só processa eventos da SUA instância — assim o deploy da
+    // Ana nunca responde mensagens do número novo (e vice-versa), evitando resposta
+    // pelo número errado. Retrocompatível: se body.instance não vier, não bloqueia.
+    if (body?.instance && body.instance !== EVOLUTION_INSTANCE) {
+      return; // evento de outra instância — o outro deploy cuida
+    }
 
     if (body?.event === "messages.upsert" || body?.data?.key) {
       const data = body.data || body;

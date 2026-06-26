@@ -74,7 +74,7 @@ const PHOTO_KEYWORDS = [
   { key: "pilar dos sonhos", names: ["pilar dos sonhos", "setor pilar"], weak: ["noroeste", "pilar", "sonhos", "atacadao", "portal shopping"] },
   { key: "santa fe",         names: ["santa fe"] },
   { key: "nascer cidadao",   names: ["nascer cidadao", "maternidade nascer"], weak: ["maternidade", "nascer"] },
-  { key: "buena vista",      names: ["buena vista", "buenavista"] },
+  { key: "buena vista",      names: ["buena vista", "buenavista"], weak: ["plaza", "plazza", "doro"] },
   { key: "eldorado oeste",   names: ["eldorado oeste", "eldorado"], weak: ["vera cruz", "vera cruz 2"] },
   { key: "esquina",          names: ["casa de esquina", "casa esquina", "eldorado esquina"], weak: ["esquina", "mega quintal"] },
   { key: "monte pascoal",    names: ["monte pascoal", "montepascoal"], weak: ["shopping america"] },
@@ -593,8 +593,18 @@ app.post("/webhook", async (req, res) => {
           if (imgB64) {
             const cls = await classifyImage(imgB64);
             if (cls?.tipo === "imovel") {
-              userText = `[CLIENTE ENVIOU PRINT/FOTO DE IMÓVEL: ${cls.descricao || "imagem de um imóvel"}]`;
-              console.log(`[${phone}] 🏠 Print de imóvel detectado: "${cls.descricao}"`);
+              // Cruza a descrição da visão pelo matcher do catálogo. Se o print
+              // traz nome/bairro/ponto de referência que identifica um imóvel
+              // (ex: "12 min do Shopping Plaza D'Oro" -> buena vista), injeta o
+              // nome certo pra Ana abrir o imóvel direto, sem o GPT ter que adivinhar.
+              const imovelDoPrint = findImovelByText(cls.descricao || "");
+              if (imovelDoPrint) {
+                userText = `[CLIENTE ENVIOU PRINT/FOTO DO IMÓVEL: ${imovelDoPrint.nome} — ${cls.descricao || ""}]`;
+                console.log(`[${phone}] 🏠 Print identificado como: "${imovelDoPrint.nome}" (desc: "${cls.descricao}")`);
+              } else {
+                userText = `[CLIENTE ENVIOU PRINT/FOTO DE IMÓVEL: ${cls.descricao || "imagem de um imóvel"}]`;
+                console.log(`[${phone}] 🏠 Print de imóvel detectado (não identificado no catálogo): "${cls.descricao}"`);
+              }
               classificado = true;
             } else if (cls?.tipo === "outro") {
               userText = `[CLIENTE ENVIOU IMAGEM: ${cls.descricao || "conteúdo não identificado"} — confirme com o cliente o que ele deseja]`;

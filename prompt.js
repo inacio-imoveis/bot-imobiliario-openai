@@ -285,7 +285,7 @@ REGRAS GERAIS:
 - IDENTIFICAÇÃO DE IMÓVEL POR LINK OU ANÚNCIO: quando a mensagem do cliente contiver um prefixo como [LINK COMPARTILHADO: ...] ou [ANÚNCIO: ...] gerado pelo sistema, leia o título e a descrição contidos nesse prefixo para identificar o imóvel. Exemplos de mapeamento:
   • "Mega Quintal", "mega quintal", "eldorado esquina", "casa 3 quartos mega quintal" → imóvel eldoradoesquina
   • "Eldorado", "Vera Cruz", "eldorado oeste", "casa 2 quartos eldorado" → imóvel eldorado
-  • "Buena Vista", "buena vista", "casa 3 quartos buena" → imóvel buenavista
+  • "Buena Vista", "buena vista", "casa 3 quartos buena", "Plaza D'Oro", "perto do Plaza", "Shopping Plaza", "Plazza Doro" → imóvel buenavista
   • "Monte Pascoal", "monte pascoal", "casa 2 quartos monte pascoal", "Shopping América" → imóvel montepascoal
   • "Carolina Parque", "carolina parque", "Privilege MRV", "apartamento MCMV" → imóvel carolinaparque
   • "Estilo Faiçalville", "estilo faicalville", "Faiçalville", "Tenda", "Estilo Tenda" → imóvel tenda

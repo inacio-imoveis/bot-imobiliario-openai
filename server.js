@@ -1361,7 +1361,15 @@ async function runFollowupJob() {
   }
 }
 
-setInterval(runFollowupJob, 30 * 60 * 1000); // a cada 30 minutos
-setTimeout(runFollowupJob, 60 * 1000); // primeira execução após 1 minuto
+// Guard de follow-up para deploys múltiplos no mesmo banco.
+// Por padrão roda (retrocompatível). Em deploys secundários (ex.: bot-ricardo-2),
+// setar RUN_FOLLOWUP=false no Railway para evitar follow-up duplicado ao cliente.
+if (process.env.RUN_FOLLOWUP !== "false") {
+  setInterval(runFollowupJob, 30 * 60 * 1000); // a cada 30 minutos
+  setTimeout(runFollowupJob, 60 * 1000); // primeira execução após 1 minuto
+  console.log("[FOLLOWUP] Job de follow-up ATIVO neste deploy");
+} else {
+  console.log("[FOLLOWUP] Job de follow-up DESATIVADO neste deploy (RUN_FOLLOWUP=false)");
+}
 
 

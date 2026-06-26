@@ -483,6 +483,15 @@ app.post("/webhook", async (req, res) => {
     const body = req.body;
     let phone, userText;
 
+    // ── DIAG-INSTANCIA (TEMPORÁRIO): descobrir nome do campo de instância no payload.
+    // Remover após capturar 1 evento e calibrar o filtro de instância.
+    console.log("[DIAG-INSTANCIA] instance=" + JSON.stringify(body?.instance) +
+      " | instanceName=" + JSON.stringify(body?.instanceName) +
+      " | data.instance=" + JSON.stringify(body?.data?.instance) +
+      " | sender=" + JSON.stringify(body?.sender) +
+      " | event=" + JSON.stringify(body?.event) +
+      " | topKeys=" + JSON.stringify(Object.keys(body || {})));
+
     if (body?.event === "messages.upsert" || body?.data?.key) {
       const data = body.data || body;
       const key = data.key || {};

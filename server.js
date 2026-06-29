@@ -259,7 +259,7 @@ function extractLeadFromHistory(messages) {
     nacoes: ["nacoes", "nações", "setor das nações"],
     santafe: ["santa fe", "santa fé"],
     nascer: ["nascer cidadao", "nascer cidadão", "maternidade", "nascer"],
-    buenavista: ["buena vista", "buenavista"],
+    buenavista: ["buena vista", "buenavista", "plaza doro", "plaza d oro", "plaza d'oro", "plazza", "plaza"],
     eldorado: ["eldorado oeste", "eldorado", "vera cruz 2", "vera cruz"],
     eldoradoesquina: ["casa de esquina", "casa esquina", "mega quintal"],
     montepascoal: ["monte pascoal", "montepascoal", "shopping america", "shopping américa"],
@@ -941,19 +941,25 @@ async function handleMessage(phone, userText) {
   if (!imovelComFotos && isAffirmativeReply(userText)) {
     const lastBot = [...session.getHistory()].reverse().find(m => m.role === "assistant");
     if (lastBot && ofereceuFotos(lastBot.content)) {
+      // Prioridade: imóvel já fixado na sessão (set pela resposta da Ana ou pelo
+      // anúncio) > imóvel citado na última fala da Ana > extração do histórico.
+      const doSessao = session.leadData?.imovelKey ? findCatalogByImovelKey(session.leadData.imovelKey) : null;
       const doTexto = findImovelByText(lastBot.content);
       const leadData = extractLeadFromHistory(session.getHistory());
       const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
-      imovelComFotos = doTexto || doHistorico || "ASK";
+      imovelComFotos = doSessao || doTexto || doHistorico || "ASK";
     }
   }
 
   if (imovelComFotos === "ASK") {
-    // Tentar usar o imóvel já mencionado na conversa
+    // Tentar usar o imóvel já mencionado na conversa.
+    // Prioriza o imóvel fixado na sessão (fonte única), depois cai na extração do histórico.
+    const doSessao = session.leadData?.imovelKey ? findCatalogByImovelKey(session.leadData.imovelKey) : null;
     const leadData = extractLeadFromHistory(session.getHistory());
     const doHistorico = leadData.imovelKey ? findCatalogByImovelKey(leadData.imovelKey) : null;
-    if (doHistorico) {
-      imovelComFotos = doHistorico;
+    const resolvido = doSessao || doHistorico;
+    if (resolvido) {
+      imovelComFotos = resolvido;
     } else {
       const nomes = catalog.filter(i => i.fotos?.length > 0).map(i => `• ${i.nome}`).join("\n");
       const msgAsk = `De qual imóvel você quer ver as fotos? 😊\n\n${nomes}`;
@@ -1033,6 +1039,24 @@ async function handleMessage(phone, userText) {
 
   const reply = response.choices[0].message.content;
   session.addMessage("assistant", reply);
+
+  // Fonte única de verdade do "imóvel ativo": quando a Ana identifica e apresenta
+  // um imóvel conversacionalmente (ex: cliente diz "próximo ao Plaza D'Oro" e a Ana
+  // responde sobre a casa do Buena Vista), gravamos esse imóvel na sessão. Sem isso,
+  // o pedido de fotos no turno seguinte ("quero ver as fotos") não tinha como saber
+  // de qual imóvel se tratava — extractLeadFromHistory só lê mensagens do cliente e
+  // perde o imóvel que só a Ana mencionou. Só preenche se ainda não houver um ativo.
+  if (!session.leadData?.imovelKey) {
+    const imovelDaResposta = findImovelByText(reply);
+    if (imovelDaResposta) {
+      const k = imovelKeyFromCatalog(imovelDaResposta);
+      if (k) {
+        session.leadData = session.leadData || {};
+        session.leadData.imovelKey = k;
+        console.log(`[${phone}] 📌 Imóvel ativo fixado pela resposta da Ana: ${imovelDaResposta.nome} (${k})`);
+      }
+    }
+  }
 
   // Marca que a coleta de dados foi de fato iniciada pela Ana — usado como trava extra
   // para a simulação automática (ver podeSimular). "LGPD" só aparece no aviso de
